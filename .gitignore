@@ -1,0 +1,41 @@
+*.env
+
+# PyInstaller
+pw-browsers/
+build/
+dist/
+*.manifest
+*.spec
+
+# Python & Environment
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Playwright Specific
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Pandas / Data Processing Artifacts
+*.csv.tmp
+*.p
+*.pkl
+
+# IDE / Code Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS System Files
+.DS_Store
+Thumbs.db
