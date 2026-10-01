@@ -1,7 +1,7 @@
-path: /kaggle/working/D Fire Dataset  # dataset root dir
-train: data/train/images  # train images (relative to 'path')
-val: data/val/images  # val images (relative to 'path')
-test: data/test/images  # test images (relative to 'path')
+path: ./datasets  # Dataset root directory
+train: images/train      # Train images (relative to path)
+val: images/val          # Validation images (relative to path)
+test: images/test
 
 # Classes
 names: ['smoke', 'fire']  # Replace with your actual class names

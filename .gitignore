@@ -1,10 +1,12 @@
 *.env
 
-#
+# YOLO
 *.png
 *.jpg
 *.jpeg
 **/labels/**/*.txt
+*.pt
+results.csv
 
 # PyInstaller
 pw-browsers/
