@@ -11,9 +11,9 @@ const char* WIFI_PASSWORD = "nggaktau";
 const char* MQTT_BROKER   = "broker.hivemq.com";
 const int   MQTT_PORT     = 1883;
 
-// Topic definitions (ESP32 #1)
-const char* TOPIC_CMD     = "my_stepper_esp32/1/cmd";
-const char* TOPIC_STATUS  = "my_stepper_esp32/1/status";
+// Topic definitions (ESP32 #2)
+const char* TOPIC_CMD     = "my_stepper_esp32/2/cmd";
+const char* TOPIC_STATUS  = "my_stepper_esp32/2/status";
 
 // --- Hardware Pins ---
 #define STEP_PIN   14
@@ -139,11 +139,11 @@ void reconnectMQTT() {
   if (millis() - lastMqttReconnectAttempt > 5000) {
     lastMqttReconnectAttempt = millis();
     
-    String clientId = "ESP32-1-HiveMQ-" + String((uint32_t)ESP.getEfuseMac(), HEX);
+    String clientId = "ESP32-2-HiveMQ-" + String((uint32_t)ESP.getEfuseMac(), HEX);
 
     if (mqttClient.connect(clientId.c_str())) {
       mqttClient.subscribe(TOPIC_CMD);
-      mqttClient.publish(TOPIC_STATUS, "[ONLINE] ESP32 #1 Stepper Controller Ready");
+      mqttClient.publish(TOPIC_STATUS, "[ONLINE] ESP32 #2 Stepper Controller Ready");
     }
   }
 }
