@@ -6,6 +6,7 @@ cv_env/*
 *.png
 *.jpg
 *.jpeg
+*.zip
 **/labels/**/*.txt
 *.pt
 results.csv
@@ -49,3 +50,7 @@ playwright/.cache/
 # OS System Files
 .DS_Store
 Thumbs.db
+
+# Dataset
+*.npz
+idea.md

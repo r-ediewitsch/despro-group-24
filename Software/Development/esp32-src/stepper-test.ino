@@ -7,8 +7,8 @@
 const char* WIFI_SSID     = "iQOO Z9 5G";
 const char* WIFI_PASSWORD = "nggaktau";
 
-// HiveMQ Public Broker
-const char* MQTT_BROKER   = "broker.hivemq.com";
+// Public MQTT Broker (EMQX)
+const char* MQTT_BROKER   = "broker.emqx.io";
 const int   MQTT_PORT     = 1883;
 
 // Topic definitions (ESP32 #1)

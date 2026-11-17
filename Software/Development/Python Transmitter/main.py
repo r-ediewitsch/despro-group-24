@@ -20,9 +20,9 @@ import uuid
 import paho.mqtt.client as mqtt
 
 # --- Default Broker & Topic Configurations ---
-DEFAULT_BROKER = "broker.hivemq.com"
+DEFAULT_BROKER = "broker.emqx.io"
 DEFAULT_TCP_PORT = 1883
-DEFAULT_WS_PORT = 8000
+DEFAULT_WS_PORT = 8083
 
 DEFAULT_TOPIC_CMD_1 = "my_stepper_esp32/1/cmd"
 DEFAULT_TOPIC_STATUS_1 = "my_stepper_esp32/1/status"
@@ -89,8 +89,13 @@ def on_connect(client, userdata, flags, rc, properties=None):
 def on_disconnect(client, userdata, *args):
     """Callback invoked when disconnected from the broker."""
     global is_connected
+    was_connected = is_connected
     is_connected = False
-    print("\n[MQTT] Disconnected from broker.")
+    
+    # Extract reason code if available
+    reason = args[1] if len(args) >= 2 else (args[0] if len(args) >= 1 else None)
+    if was_connected:
+        print(f"\n[MQTT] Disconnected from broker ({reason}).")
 
 
 def on_message(client, userdata, msg):
