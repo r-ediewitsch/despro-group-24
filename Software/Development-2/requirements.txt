@@ -1,0 +1,18 @@
+# =====================================================================
+# DEEZPRO SUBSYSTEM REQUIREMENTS (CONTROL, KINEMATICS, & VISION)
+# =====================================================================
+
+# Protokol Komunikasi MQTT (Python <-> 3x ESP32)
+paho-mqtt>=2.0.0
+
+# Pengelola Konfigurasi Sistem (system_config.yaml)
+pyyaml>=6.0.1
+
+# Komputasi Numerik, Transformasi Homografi, & Matriks Geometri
+numpy>=1.24.0
+
+# Pengolahan Citra, Koreksi Distorsi Lensa, & GUI OpenCV
+opencv-python>=4.8.0.76
+
+# Framework Deteksi Objek Api & Asap YOLO
+ultralytics>=8.1.0

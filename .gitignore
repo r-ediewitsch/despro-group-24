@@ -1,6 +1,7 @@
 *.env
 *.venv
 cv_env/*
+Proposal*
 
 # YOLO
 *.png
@@ -50,7 +51,3 @@ playwright/.cache/
 # OS System Files
 .DS_Store
 Thumbs.db
-
-# Dataset
-*.npz
-idea.md

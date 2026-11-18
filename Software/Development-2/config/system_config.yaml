@@ -1,0 +1,49 @@
+# =====================================================================
+# DEEZPRO AUTOMATIC FIRE EXTINGUISHING SYSTEM - CONFIGURATION FILE
+# =====================================================================
+
+frame:
+  # Dimensi fisik total frame railing (satuan: cm)
+  width_m_cm: 200.0     # Panjang Sumbu X (2 meter)
+  height_n_cm: 200.0    # Panjang Sumbu Y (2 meter)
+
+clearance:
+  # Jarak bebas (clearance) di kedua sisi masing-masing sumbu (satuan: cm)
+  clearance_x_cm: 10.0  # Clearance sisi kiri dan kanan sumbu X (m)
+  clearance_y_cm: 10.0  # Clearance sisi atas dan bawah sumbu Y (n)
+
+stepper:
+  # Jumlah step motor ujung-ke-ujung dalam rentang jangkauan efektif (M-2m & N-2n)
+  total_steps_x_p: 8000   # Parameter P (Sumbu X)
+  total_steps_y_q: 8000   # Parameter Q (Sumbu Y)
+  default_speed: 1000.0   # Kecepatan default (steps/sec)
+  default_accel: 500.0    # Akselerasi default (steps/sec^2)
+  homing_speed: 400.0     # Kecepatan saat prosedur auto-homing
+
+apar:
+  default_spray_duration_ms: 3000   # Durasi penyemprotan APAR (milidetik)
+  servo_idle_angle: 0               # Posisi sudut servo tuas bebas (derajat)
+  servo_press_angle: 90             # Posisi sudut servo tuas tertekan (derajat)
+
+coordinator:
+  max_spray_retries: 3              # Batas maksimum percobaan semprot sebelum masuk status FAULT
+  move_timeout_sec: 30.0            # Waktu batas pergerakan sumbu sebelum memicu timeout error
+  verify_wait_sec: 2.5              # Waktu tunggu verifikasi sensor setelah penyemprotan
+  spray_radius_threshold_cm: 20.0   # Toleransi radius pergeseran api yang masih terjangkau corong semprot
+  home_after_extinguish: true       # Kembali ke titik asal (0,0) setelah api padam
+
+mqtt:
+  broker: "broker.emqx.io"          # Public MQTT broker EMQX
+  port: 1883
+  ws_port: 8083
+  keepalive: 60
+  client_id_prefix: "Deezpro-Coordinator"
+  topics:
+    rail_x_cmd: "deezpro/rail/x/cmd"
+    rail_x_status: "deezpro/rail/x/status"
+    rail_y_cmd: "deezpro/rail/y/cmd"
+    rail_y_status: "deezpro/rail/y/status"
+    apar_cmd: "deezpro/apar/cmd"
+    apar_status: "deezpro/apar/status"
+    system_cmd: "deezpro/system/cmd"
+    system_status: "deezpro/system/status"

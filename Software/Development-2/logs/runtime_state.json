@@ -1,0 +1,43 @@
+{
+  "timestamp": 1794987538.5543914,
+  "timestamp_str": "2026-11-18 14:38:58",
+  "system_state": "INIT",
+  "current_position_cm": {
+    "x": 10.0,
+    "y": 10.0
+  },
+  "current_position_steps": {
+    "x": 0,
+    "y": 0
+  },
+  "last_active_target_cm": {
+    "x": 120.5,
+    "y": 80.0
+  },
+  "last_active_target_steps": {
+    "step_x": 4911,
+    "step_y": 3111
+  },
+  "retry_count": 0,
+  "nodes": {
+    "x": {
+      "state": "OFFLINE",
+      "pos": 0,
+      "target": 0,
+      "seq": 0,
+      "last_seen": 0.0
+    },
+    "y": {
+      "state": "OFFLINE",
+      "pos": 0,
+      "target": 0,
+      "seq": 0,
+      "last_seen": 0.0
+    },
+    "apar": {
+      "state": "OFFLINE",
+      "seq": 0,
+      "last_seen": 0.0
+    }
+  }
+}
