@@ -43,13 +43,23 @@ Software/Development-2/
 │
 ├── calibrate_homography.py         # GUI interaktif kalibrasi homografi & verifikasi klik
 ├── detect_fire_pixels.py           # Program visualisasi deteksi api & koordinat piksel
+├── inspect_cameras.py              # Visual inspector pemetaan index webcam (Cam 1 & Cam 2)
+├── collect_dataset.py              # Pengumpul citra lapangan (interval sampling + undistort)
+├── prelabel_dataset.py             # Batch zero-shot pre-labeling (Grounding DINO / Florence-2)
+├── annotate_dataset.py             # GUI Human-in-the-Loop verifikasi & export dataset YOLO
 ├── run_controller_only.py          # Konsol interaktif pengujian kontrol tanpa kamera
 ├── test_kinematics.py              # Unit testing untuk modul kinematics & clamping
 ├── test_homography.py              # Unit testing untuk modul homografi & proyeksi
 ├── test_detector.py                # Unit testing untuk modul deteksi api & asap
 ├── requirements.txt                # Daftar pustaka Python yang dibutuhkan
+├── MANUAL_DATASET.md               # PANDUAN LENGKAP PENGUMPULAN & ANOTASI DATASET
 └── README.md                       # Dokumentasi operasional modul kontrol ini
 ```
+
+> [!TIP]
+> **Panduan Pengumpulan & Anotasi Dataset Terperinci**:
+> Untuk panduan langkah demi langkah pengumpulan data lapangan dari kamera, silakan baca [**`MANUAL_DATASET.md`**](file:///d:/Tugas/Desain%20Proyek/Deezpro/Software/Development-2/MANUAL_DATASET.md).
+
 
 ---
 
@@ -162,7 +172,23 @@ python -m unittest discover -s . -p "test_*.py"
 
 ---
 
-## 7. Cara Melakukan Kalibrasi Homografi Kamera
+## 7. Diagnostik & Verifikasi Index Kamera (`inspect_cameras.py`)
+
+Jika Anda menggunakan laptop dengan webcam internal dan menghubungkan 2 webcam USB eksternal, gunakan tool diagnostik visual ini untuk memastikan nomor index OpenCV (`0, 1, 2...`) terhubung ke Kamera 1 dan Kamera 2 yang tepat:
+
+```powershell
+python "inspect_cameras.py"
+```
+* Layar akan menampilkan seluruh live stream webcam yang aktif secara berdampingan.
+* **Cara Cepat Menemukan Fisik Kamera**: Tutup salah satu lensa webcam USB dengan tangan Anda $\rightarrow$ amati jendela mana di layar yang menjadi gelap.
+* **Tekan `[TAB]`**: Berpindah fokus antar kamera.
+* **Tekan `[1]`**: Menetapkan webcam terpilih sebagai **Kamera 1** (menggunakan `calib_cam1.npz`).
+* **Tekan `[2]`**: Menetapkan webcam terpilih sebagai **Kamera 2** (menggunakan `calib_cam2.npz`).
+* **Tekan `[S]`**: Langsung menyimpan konfigurasi ke `config/system_config.yaml`. Seluruh skrip (`calibrate_homography.py`, `detect_fire_pixels.py`, dll.) akan otomatis menggunakan index tersebut!
+
+---
+
+## 8. Cara Melakukan Kalibrasi Homografi Kamera
 
 Program interaktif [**`calibrate_homography.py`**](calibrate_homography.py) digunakan untuk memetakan koordinat piksel kamera $(u, v)$ ke koordinat fisik lantai $(X_w, Y_w)$ dalam satuan centimeter.
 

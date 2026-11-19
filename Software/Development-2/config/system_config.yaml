@@ -47,3 +47,18 @@ mqtt:
     apar_status: "deezpro/apar/status"
     system_cmd: "deezpro/system/cmd"
     system_status: "deezpro/system/status"
+
+cameras:
+  cam1:
+    index: 1                            # Index OpenCV VideoCapture (0, 1, 2, ...)
+    name: "Kamera 1"
+    calib_file: "config/calib_cam1.npz"
+    homography_file: "config/homography_cam1.npz"
+    resolution: [1280, 720]
+  cam2:
+    index: 2                            # Index OpenCV VideoCapture (0, 1, 2, ...)
+    name: "Kamera 2"
+    calib_file: "config/calib_cam2.npz"
+    homography_file: "config/homography_cam2.npz"
+    resolution: [1280, 720]
+

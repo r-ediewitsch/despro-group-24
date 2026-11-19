@@ -15,6 +15,7 @@ import argparse
 import time
 import numpy as np
 import cv2
+import yaml
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
@@ -34,7 +35,13 @@ def parse_arguments():
         "--camera",
         type=int,
         default=1,
-        help="Indeks webcam (default: 1 untuk Kamera 1).",
+        help="Nomor logika kamera: 1 untuk Kamera 1, 2 untuk Kamera 2.",
+    )
+    parser.add_argument(
+        "--source",
+        type=int,
+        default=None,
+        help="Override index hardware webcam (0, 1, 2...). Jika tidak diisi, membaca dari config/system_config.yaml.",
     )
     parser.add_argument(
         "--model",
@@ -235,13 +242,32 @@ def main():
         cv2.destroyAllWindows()
         return
 
+    # Resolusi hardware index dari system_config.yaml jika tidak dioverride
+    device_index = args.source
+    if device_index is None:
+        cfg_path = os.path.join(current_dir, "config", "system_config.yaml")
+        if os.path.exists(cfg_path):
+            try:
+                import yaml
+                with open(cfg_path, "r") as f:
+                    cfg_y = yaml.safe_load(f) or {}
+                    cam_key = f"cam{args.camera}"
+                    if "cameras" in cfg_y and cam_key in cfg_y["cameras"]:
+                        device_index = int(cfg_y["cameras"][cam_key].get("index", args.camera))
+            except Exception:
+                pass
+        if device_index is None:
+            device_index = args.camera
+
+    logger.info(f"Kamera Logika {args.camera} terhubung ke Hardware Device Index {device_index}")
+
     # Skenario 2: Streaming Webcam Live
-    cap = cv2.VideoCapture(args.camera, cv2.CAP_DSHOW)
+    cap = cv2.VideoCapture(device_index, cv2.CAP_DSHOW)
     if not cap.isOpened():
-        cap = cv2.VideoCapture(args.camera)
+        cap = cv2.VideoCapture(device_index)
 
     if not cap.isOpened():
-        logger.error(f"Gagal membuka webcam kamera indeks {args.camera}!")
+        logger.error(f"Gagal membuka webcam kamera indeks {device_index} (Kamera {args.camera})!")
         return
 
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))

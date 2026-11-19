@@ -18,6 +18,7 @@ import time
 from typing import List, Tuple, Optional
 import numpy as np
 import cv2
+import yaml
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
@@ -37,7 +38,13 @@ def parse_arguments():
         "--camera",
         type=int,
         default=1,
-        help="Indeks webcam (default: 1 untuk Kamera 1, 2 untuk Kamera 2).",
+        help="Nomor logika kamera: 1 untuk Kamera 1, 2 untuk Kamera 2.",
+    )
+    parser.add_argument(
+        "--source",
+        type=int,
+        default=None,
+        help="Override index hardware OpenCV (0, 1, 2...). Jika tidak diisi, membaca dari config/system_config.yaml.",
     )
     parser.add_argument(
         "--calib",
@@ -99,6 +106,24 @@ class HomographyGuiApp:
             self.output_path = args.output
         else:
             self.output_path = os.path.join(cfg_dir, f"homography_cam{self.cam_id}.npz")
+
+        # Resolusi index hardware kamera (OpenCV VideoCapture)
+        self.device_index = args.source
+        if self.device_index is None:
+            sys_cfg_path = os.path.join(cfg_dir, "system_config.yaml")
+            if os.path.exists(sys_cfg_path):
+                try:
+                    with open(sys_cfg_path, "r") as f:
+                        cfg_yaml = yaml.safe_load(f) or {}
+                        cam_key = f"cam{self.cam_id}"
+                        if "cameras" in cfg_yaml and cam_key in cfg_yaml["cameras"]:
+                            self.device_index = int(cfg_yaml["cameras"][cam_key].get("index", self.cam_id))
+                except Exception:
+                    pass
+            if self.device_index is None:
+                self.device_index = self.cam_id
+
+        logger.info(f"Kamera {self.cam_id} dipetakan ke Hardware Device Index {self.device_index}")
 
         self.engine = HomographyEngine()
 
@@ -219,12 +244,12 @@ class HomographyGuiApp:
             self.is_frozen = True
         else:
             # Buka kamera dengan DirectShow
-            cap = cv2.VideoCapture(self.cam_id, cv2.CAP_DSHOW)
+            cap = cv2.VideoCapture(self.device_index, cv2.CAP_DSHOW)
             if not cap.isOpened():
-                cap = cv2.VideoCapture(self.cam_id)
+                cap = cv2.VideoCapture(self.device_index)
 
             if not cap.isOpened():
-                logger.error(f"Gagal membuka kamera indeks {self.cam_id}!")
+                logger.error(f"Gagal membuka kamera indeks {self.device_index} (Kamera {self.cam_id})!")
                 return
 
             cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
