@@ -3,7 +3,7 @@ import math
 from ultralytics import YOLO
 
 class FireDetector:
-    def __init__(self, model_path="yolov8n.pt", conf_threshold=0.5):
+    def __init__(self, model_path, conf_threshold=0.5):
         """
         Initializes the YOLOv8 model for fire detection.
         Requires a fine-tuned model path (e.g., trained on D-Fire dataset).
@@ -27,8 +27,8 @@ class FireDetector:
             conf = float(box.conf[0])
             cls_id = int(box.cls[0])
             
-            # Assuming class 0 is 'fire' in the custom trained model
-            if cls_id == 0 and conf >= self.conf_threshold:
+            # Class 1 is 'fire' in the custom model
+            if cls_id == 1 and conf >= self.conf_threshold:
                 # Extract box coordinates
                 x1, y1, x2, y2 = box.xyxy[0].tolist()
                 
@@ -66,8 +66,7 @@ if __name__ == "__main__":
     cap.set(cv2.CAP_PROP_FPS, 30)
 
     # Initialize Detector
-    # Note: Replace 'yolov8n.pt' with your specific fire-trained weights (e.g., 'best.pt')
-    detector = FireDetector(model_path="yolov8n.pt", conf_threshold=0.5)
+    detector = FireDetector(model_path="weights\yolo26n.pt", conf_threshold=0.5)
 
     print("Starting real-time fire detection...")
     
@@ -89,18 +88,18 @@ if __name__ == "__main__":
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
                 cv2.circle(frame, (int(cx), int(cy)), 5, (0, 255, 0), -1)
                 
-                # 2. Homography placeholder: Map (cx, cy) to floor coordinates (Xw, Yw)
-                # In the full system, this feeds into cv2.perspectiveTransform
-                target_motor_x = int(cx * 1.5) # Mock conversion multiplier
+                # # 2. Homography placeholder: Map (cx, cy) to floor coordinates (Xw, Yw)
+                # # In the full system, this feeds into cv2.perspectiveTransform
+                # target_motor_x = int(cx * 1.5) # Mock conversion multiplier
                 
-                # 3. Transmit driver action to ESP32 (receiver.ino)
-                # Using the absolute position command (G <pos>) as defined in the receiver
-                command = f"G {target_motor_x}"
-                mqtt_client.publish(TOPIC_CMD, command)
-                print(f"[FIRE DETECTED] Conf: {conf:.2f} | Centroid: ({cx:.1f}, {cy:.1f}) | TX: {command}")
+                # # 3. Transmit driver action to ESP32 (receiver.ino)
+                # # Using the absolute position command (G <pos>) as defined in the receiver
+                # command = f"G {target_motor_x}"
+                # mqtt_client.publish(TOPIC_CMD, command)
+                # print(f"[FIRE DETECTED] Conf: {conf:.2f} | Centroid: ({cx:.1f}, {cy:.1f}) | TX: {command}")
                 
-                # Throttle commands to prevent flooding the ESP32 while it moves
-                time.sleep(1)
+                # # Throttle commands to prevent flooding the ESP32 while it moves
+                # time.sleep(1)
 
             # Display the monitoring interface
             cv2.imshow("Fire Monitoring - Camera 1", frame)
