@@ -138,9 +138,11 @@ python "run_controller_only.py"
 ### Daftar Perintah Interaktif:
 * `FIRE <x_cm> <y_cm>`: Menyimulasikan siklus penuh pemadaman api (Clamping $\rightarrow$ Gerak Simultan $\rightarrow$ Barrier $\rightarrow$ Semprot APAR $\rightarrow$ Selesai).
   * *Contoh*: `FIRE 100 120` (titik tengah), `FIRE 5 150` (akan otomatis di-clamp ke $X = 10$).
-* `GOTO <x_cm> <y_cm>`: Menggerakkan nozzle ke koordinat fisik tanpa menyemprot APAR.
+* `GOTO <x_cm> <y_cm>`: Menggerakkan nozzle ke koordinat fisik (cm) tanpa menyemprot APAR.
+* `STEP <step_x> <step_y>`: **Menggerakkan KEDUA motor secara simultan berbasis nilai langkah (step) absolut** tanpa konversi cm (misal: `STEP 4000 4000` untuk ke posisi tengah).
+* `MOVE <dx_steps> <dy_steps>`: **Menggerakkan KEDUA motor secara simultan sejumlah langkah relatif** (misal: `MOVE 500 -200`).
 * `HOME`: Memerintahkan Auto-Homing pada kedua sumbu menuju limit switch.
-* `JOG X <steps>` / `JOG Y <steps>`: Menggerakkan motor relatif sejumlah langkah (misal: `JOG X 500`).
+* `JOG X <steps>` / `JOG Y <steps>`: Menggerakkan salah satu motor relatif sejumlah langkah (misal: `JOG X 500`).
 * `SPRAY [duration_ms]`: Menguji penekanan tuas servo APAR (misal: `SPRAY 2000`).
 * `STATUS`: Menampilkan telemetri real-time: posisi koordinat, step, status koneksi 3x ESP32, dan state sistem.
 * `ESTOP`: Penghentian darurat instan seluruh motor dan pelepasan tuas APAR.

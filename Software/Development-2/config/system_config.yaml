@@ -14,12 +14,12 @@ clearance:
 
 stepper:
   # Jumlah step motor ujung-ke-ujung dalam rentang jangkauan efektif (M-2m & N-2n)
-  total_steps_x_p: 8000   # Parameter P (Sumbu X)
-  total_steps_y_q: 8000   # Parameter Q (Sumbu Y)
+  total_steps_x_p: 7500   # Parameter P (Sumbu X)
+  total_steps_y_q: 6200   # Parameter Q (Sumbu Y)
   default_speed: 1000.0   # Kecepatan default (steps/sec)
   default_accel: 500.0    # Akselerasi default (steps/sec^2)
   homing_speed: 400.0     # Kecepatan saat prosedur auto-homing
-
+ 
 apar:
   default_spray_duration_ms: 3000   # Durasi penyemprotan APAR (milidetik)
   servo_idle_angle: 0               # Posisi sudut servo tuas bebas (derajat)

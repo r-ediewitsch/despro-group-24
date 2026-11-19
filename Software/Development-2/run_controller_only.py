@@ -42,18 +42,21 @@ def print_menu():
     print(" DEEZPRO CONTROLLER TEST CONSOLE (PYTHON <-> 3x ESP32)")
     print("=" * 70)
     print(" Perintah Operasi Berbasis Koordinat:")
-    print("   FIRE <x_cm> <y_cm>   : Simulasikan deteksi api (Gerak -> Barrier -> Semprot -> Selesai)")
-    print("   GOTO <x_cm> <y_cm>   : Gerak manual ke koordinat fisik tanpa semprot APAR")
-    print("   HOME                 : Jalankan Auto-Homing pada seluruh sumbu (Limit Switch)")
+    print("   FIRE <x_cm> <y_cm>      : Simulasikan deteksi api (Gerak -> Barrier -> Semprot -> Selesai)")
+    print("   GOTO <x_cm> <y_cm>      : Gerak manual ke koordinat fisik tanpa semprot APAR")
+    print("   HOME                    : Jalankan Auto-Homing pada seluruh sumbu (Limit Switch)")
+    print("\n Perintah Berbasis Langkah (STEPS - Tanpa Konversi cm):")
+    print("   STEP <step_x> <step_y>  : Gerak KEDUA motor ke posisi langkah absolut (Contoh: 'STEP 4000 4000')")
+    print("   MOVE <dx> <dy>          : Gerak relatif KEDUA motor secara simultan (Contoh: 'MOVE 500 -200')")
     print("\n Perintah Manual & Uji Komponen:")
-    print("   JOG X <steps>        : Gerak relatif Sumbu X (misal: 'JOG X 500' atau 'JOG X -200')")
-    print("   JOG Y <steps>        : Gerak relatif Sumbu Y (misal: 'JOG Y 500' atau 'JOG Y -200')")
-    print("   SPRAY [duration_ms]  : Uji aktivasi servo APAR (default: 3000 ms)")
-    print("   STATUS               : Tampilkan telemetri koordinat dan status 3x ESP32")
-    print("   ESTOP                : Pemicu Penghentian Darurat Instan (Emergency Stop)")
-    print("   RESET                : Reset status dari E-STOP / FAULT kembali ke IDLE")
-    print("   HELP / ?             : Tampilkan kembali menu ini")
-    print("   QUIT / EXIT          : Keluar dari program")
+    print("   JOG X <steps>           : Gerak relatif Sumbu X tunggal (misal: 'JOG X 500')")
+    print("   JOG Y <steps>           : Gerak relatif Sumbu Y tunggal (misal: 'JOG Y 500')")
+    print("   SPRAY [duration_ms]     : Uji aktivasi servo APAR (default: 3000 ms)")
+    print("   STATUS                  : Tampilkan telemetri koordinat dan status 3x ESP32")
+    print("   ESTOP                   : Pemicu Penghentian Darurat Instan (Emergency Stop)")
+    print("   RESET                   : Reset status dari E-STOP / FAULT kembali ke IDLE")
+    print("   HELP / ?                : Tampilkan kembali menu ini")
+    print("   QUIT / EXIT             : Keluar dari program")
     print("=" * 70 + "\n")
 
 
@@ -137,6 +140,30 @@ def main():
                     coordinator.manual_goto_cm(x, y)
                 except ValueError:
                     print("[ERROR] Nilai koordinat harus berupa angka!")
+
+            elif cmd in ["STEP", "GOTO_STEP"]:
+                if len(parts) < 3:
+                    print("[ERROR] Gunakan format: STEP <step_x> <step_y> (Contoh: STEP 4000 4000)")
+                    continue
+                try:
+                    sx = int(parts[1])
+                    sy = int(parts[2])
+                    print(f"\n[STEP GOTO] Menggerakkan KEDUA motor ke Target Step X={sx}, Y={sy}...")
+                    coordinator.manual_goto_steps(sx, sy, wait_done=True)
+                except ValueError:
+                    print("[ERROR] Nilai step harus berupa angka bulat integer!")
+
+            elif cmd in ["MOVE", "JOG2", "JOG_BOTH"]:
+                if len(parts) < 3:
+                    print("[ERROR] Gunakan format: MOVE <dx_steps> <dy_steps> (Contoh: MOVE 500 -200)")
+                    continue
+                try:
+                    dx = int(parts[1])
+                    dy = int(parts[2])
+                    print(f"\n[MOVE RELATIF] Menggerakkan KEDUA motor secara relatif dX={dx}, dY={dy} steps...")
+                    coordinator.manual_jog_both_steps(dx, dy)
+                except ValueError:
+                    print("[ERROR] Nilai langkah relatif harus berupa angka bulat integer!")
 
             elif cmd == "HOME":
                 print("\n[MANUAL HOMING] Memulai prosedur auto-homing pada kedua sumbu...")

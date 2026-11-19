@@ -320,6 +320,50 @@ class CentralCoordinator:
         self.mqtt.send_stepper_goto("y", step_y)
         return self.mqtt.wait_for_axes_done(timeout_sec=self.move_timeout_sec)
 
+    def manual_goto_steps(self, step_x: int, step_y: int, wait_done: bool = True) -> bool:
+        """
+        Menggerakkan KEDUA motor secara simultan menggunakan nilai langkah (step) absolut,
+        tanpa konversi koordinat cm.
+        """
+        # Validasi batas langkah fisik
+        max_p = self.kinematics.total_steps_x_p
+        max_q = self.kinematics.total_steps_y_q
+        target_x = max(0, min(int(step_x), max_p))
+        target_y = max(0, min(int(step_y), max_q))
+
+        if target_x != step_x or target_y != step_y:
+            logger.warning(
+                f"[STEP CLAMPED] Input step ({step_x}, {step_y}) dibatasi dalam rentang "
+                f"aman (0-{max_p}, 0-{max_q}) -> ({target_x}, {target_y})"
+            )
+
+        eq_x_cm, eq_y_cm = self.kinematics.steps_to_coordinates(target_x, target_y)
+        logger.info(
+            f"[MANUAL STEP GOTO] Menggerakkan KEDUA motor ke Step (X: {target_x}, Y: {target_y}) "
+            f"[Setara fisik: {eq_x_cm:.1f} cm, {eq_y_cm:.1f} cm]..."
+        )
+
+        self.set_state(SystemState.MOVING_TO_TARGET)
+        self.mqtt.send_stepper_goto("x", target_x)
+        self.mqtt.send_stepper_goto("y", target_y)
+
+        if wait_done:
+            done = self.mqtt.wait_for_axes_done(timeout_sec=self.move_timeout_sec)
+            self.set_state(SystemState.IDLE_MONITORING)
+            return done
+        return True
+
+    def manual_jog_both_steps(self, dx_steps: int, dy_steps: int, wait_done: bool = False) -> bool:
+        """
+        Menggerakkan KEDUA motor secara simultan sejumlah langkah relatif (delta step).
+        """
+        logger.info(f"[MANUAL MOVE BOTH] Menggerakkan relatif Sumbu X: {dx_steps} step, Sumbu Y: {dy_steps} step...")
+        self.mqtt.send_stepper_move("x", dx_steps)
+        self.mqtt.send_stepper_move("y", dy_steps)
+        if wait_done:
+            return self.mqtt.wait_for_axes_done(timeout_sec=self.move_timeout_sec)
+        return True
+
     def manual_jog_steps(self, node: str, steps: int) -> bool:
         """Menggerakkan sumbu tertentu sejauh jumlah langkah relatif (jogging)."""
         self.mqtt.send_stepper_move(node, steps)

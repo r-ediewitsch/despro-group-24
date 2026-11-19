@@ -22,12 +22,14 @@ import cv2
 
 class DatasetCollector:
     def __init__(self, source=0, calib_file=None, output_dir="dataset_raw",
-                 interval_sec=1.5, width=1280, height=720):
+                 interval_sec=1.5, width=1280, height=720, max_samples=None):
         self.source = source
         self.output_dir = output_dir
         self.interval_sec = interval_sec
         self.width = width
         self.height = height
+        self.max_samples = max_samples
+        self.should_stop = False
 
         # Output folders
         self.pos_dir = os.path.join(output_dir, "positive")
@@ -45,12 +47,20 @@ class DatasetCollector:
         if calib_file and os.path.exists(calib_file):
             print(f"[Collector] Memuat parameter kalibrasi: {calib_file}")
             data = np.load(calib_file)
-            mtx = data["camera_matrix"]
-            dist = data["dist_coeff"]
-            self.map1, self.map2 = cv2.initUndistortRectifyMap(
-                mtx, dist, None, mtx, (width, height), cv2.CV_32FC1
+            mtx = data["camera_matrix"] if "camera_matrix" in data else data.get("K", None)
+            dist = (
+                data["dist_coeffs"] if "dist_coeffs" in data 
+                else (data["dist_coeff"] if "dist_coeff" in data else data.get("D", None))
             )
-            print("[Collector] Koreksi distorsi lensa aktif.")
+
+            if mtx is not None and dist is not None:
+                new_K, _ = cv2.getOptimalNewCameraMatrix(mtx, dist, (width, height), alpha=0.0, newImgSize=(width, height))
+                self.map1, self.map2 = cv2.initUndistortRectifyMap(
+                    mtx, dist, None, new_K, (width, height), cv2.CV_32FC1
+                )
+                print("[Collector] Koreksi distorsi lensa aktif (Undistort OK).")
+            else:
+                print("[Collector WARNING] Format matriks kalibrasi tidak lengkap. Berjalan tanpa undistort.")
         else:
             if calib_file:
                 print(f"[Collector] Peringatan: File {calib_file} tidak ditemukan. Berjalan tanpa undistort.")
@@ -84,6 +94,11 @@ class DatasetCollector:
         self.flash_timer = time.time() + 0.3
         self.last_capture_time = time.time()
         print(f"[Capture] {target_path} (Pos: {self.pos_count}, Neg: {self.neg_count})")
+
+        total = self.pos_count + self.neg_count
+        if self.max_samples and total >= self.max_samples:
+            print(f"\n[TARGET TERCAPAI] Mencapai kuota batas {self.max_samples} sampel.")
+            self.should_stop = True
 
     def run(self):
         # Open capture device
@@ -131,6 +146,10 @@ class DatasetCollector:
 
             if self.auto_capture and time_since_last >= self.interval_sec:
                 self.save_frame(frame)
+
+            if self.should_stop:
+                print(f"[Collector] Selesai otomatis: Kuota {self.max_samples} sampel terpenuhi.")
+                break
 
             # Visual feedback (flash on capture)
             if now < self.flash_timer:
@@ -206,6 +225,7 @@ def main():
     parser.add_argument("--interval", type=float, default=1.5, help="Interval pengambilan otomatis dalam detik (default: 1.5)")
     parser.add_argument("--width", type=int, default=1280, help="Lebar resolusi kamera (default: 1280)")
     parser.add_argument("--height", type=int, default=720, help="Tinggi resolusi kamera (default: 720)")
+    parser.add_argument("--max-samples", type=int, default=None, help="Batas maksimal jumlah sampel sebelum berhenti otomatis (opsional)")
     args = parser.parse_args()
 
     collector = DatasetCollector(
@@ -214,7 +234,8 @@ def main():
         output_dir=args.out,
         interval_sec=args.interval,
         width=args.width,
-        height=args.height
+        height=args.height,
+        max_samples=args.max_samples
     )
     collector.run()
 
