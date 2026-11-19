@@ -16,3 +16,10 @@ opencv-python>=4.8.0.76
 
 # Framework Deteksi Objek Api & Asap YOLO
 ultralytics>=8.1.0
+
+# Zero-Shot Foundation Models (Grounding DINO & Microsoft Florence-2)
+torch>=2.0.0
+transformers>=4.38.0
+timm>=0.9.0
+einops>=0.7.0
+pillow>=10.0.0

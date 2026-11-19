@@ -17,6 +17,10 @@ from src.vision.detector import FireSmokeDetector, PixelDetection
 class TestFireSmokeDetector(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        try:
+            import ultralytics
+        except ImportError:
+            raise unittest.SkipTest("Library 'ultralytics' belum terpasang di Python environment ini.")
         model_path = os.path.join(current_dir, "models", "best.pt")
         cls.detector = FireSmokeDetector(model_path=model_path, conf_threshold=0.30)
 

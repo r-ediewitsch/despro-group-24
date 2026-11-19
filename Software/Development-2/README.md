@@ -205,3 +205,43 @@ python "detect_fire_pixels.py" --image "path/to/foto_api.jpg"
 * **Screenshot**: Tekan tombol **`S`** untuk menyimpan tangkapan layar lengkap dengan anotasi bounding box dan koordinat piksel.
 * **Banner HUD Status Bahaya**: Menampilkan status peringatan `[!] API TERDETEKSI`, `[!] ASAP TERDETEKSI`, atau `[OK] MONITORING AMAN`.
 
+---
+
+## 9. Pengumpulan & Anotasi Dataset (Sesuai STEPS.md)
+
+Modul ini menyediakan alur kerja lengkap untuk akuisisi citra lapangan dan pelabelan data sesuai standar **`STEPS.md`**:
+
+### A. Pengumpulan Citra Lapangan (`collect_dataset.py`)
+Merekam citra dari webcam/kamera statis dengan interval sampling anti-redundansi (1.5 detik per frame) dan koreksi distorsi lensa (*undistort*):
+```powershell
+python "collect_dataset.py" --source 0 --calib "config/calib_cam1.npz" --out "dataset_raw"
+```
+* **`[SPACE]`**: Ambil frame manual saat nyala api berfluktuasi atau asap menyebar.
+* **`[M]`**: Ganti mode antara `POSITIVE` (Api/Asap) dan `NEGATIVE` (Hard Negative/Background).
+* **`[A]`**: Aktifkan/nonaktifkan auto-interval capture.
+
+### B. Zero-Shot Batch Pre-Labeling (`prelabel_dataset.py`)
+Gunakan foundation model seperti **Grounding DINO** atau **Microsoft Florence-2** untuk mendeteksi api (*fire/flame*) dan asap (*smoke*) secara semantik tanpa bias overfitting model lama:
+```powershell
+# Menggunakan Grounding DINO (rekomendasi kecepatan & akurasi)
+python "prelabel_dataset.py" --backend grounding_dino --box-thresh 0.30
+
+# Atau menggunakan Microsoft Florence-2
+python "prelabel_dataset.py" --backend florence2
+```
+* Skrip akan memproses seluruh folder `dataset_raw/` dan langsung membuat file label `.txt` (format YOLO) di `dataset_annotated/labels/`.
+* Gambar pada subfolder `negative/` otomatis diberi label file 0-byte (background murni).
+
+### C. Verifikasi Human-in-the-Loop & Pembagian Dataset (`annotate_dataset.py`)
+Membuka antarmuka grafis interaktif untuk memeriksa draf label, menghapus false positive, dan mengekspor dataset:
+```powershell
+python "annotate_dataset.py" --raw "dataset_raw" --out "dataset_annotated" --backend grounding_dino
+```
+* **Drag Mouse Kiri**: Gambar bounding box baru.
+* **Klik Kanan pada Box**: Hapus deteksi palsu (*False Positive* / distractor).
+* **`[0]` / `[1]`**: Pilih kelas aktif `0: smoke` atau `1: fire`.
+* **`[B]`**: Tandai citra sebagai background murni (menghasilkan file `.txt` kosong 0-byte).
+* **`[SPACE]`**: Simpan anotasi YOLO dan lanjut ke gambar berikutnya.
+* **`[S]`**: Ekspor dan split otomatis ke folder `dataset_yolo/` (80% train / 20% val) lengkap dengan `data.yaml`!
+
+
