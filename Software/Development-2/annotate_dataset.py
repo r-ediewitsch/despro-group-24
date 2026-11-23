@@ -83,22 +83,12 @@ class DatasetAnnotator:
         os.makedirs(self.lbl_dir, exist_ok=True)
 
         self.labeler = None
-
-        # Inisialisasi Pre-labeler jika tidak 'none'
-        if self.backend != "none":
-            try:
-                from src.vision.foundation_labeler import FoundationLabeler
-                print(f"[Annotator] Menginisialisasi Foundation Model backend='{self.backend}'...")
-                self.labeler = FoundationLabeler(backend=self.backend, model_id=self.model_id)
-                print(f"[Annotator] Pre-labeler aktif dengan threshold {self.conf_thresh}.")
-            except Exception as e:
-                print(f"[Annotator WARNING] Gagal menginisialisasi pre-labeler ({e}).")
-                print("[Annotator] Berjalan dalam mode manual murni.")
+        # Pre-labeler diinisialisasi secara lazy (on-demand) hanya jika ditemukan gambar yang belum memiliki file label .txt
 
         # Ambil daftar gambar
         self.image_paths = self._gather_images()
         if not self.image_paths:
-            print(f"[Annotator] Tidak ada gambar ditemukan di {raw_dir}!")
+            print(f"[Annotator] Tidak ada gambar ditemukan di '{raw_dir}' maupun di '{self.img_dir}'!")
             return
 
         print(f"[Annotator] Total {len(self.image_paths)} gambar siap dianotasi.")
@@ -114,11 +104,36 @@ class DatasetAnnotator:
         self.is_background = False
         self.undo_stack = []
 
+    def _get_labeler(self):
+        """Memuat Foundation Model secara on-demand hanya jika ada gambar yang belum berlabel."""
+        if self.labeler is None and self.backend != "none":
+            try:
+                from src.vision.foundation_labeler import FoundationLabeler
+                print(f"[Annotator] Gambar baru tanpa label terdeteksi! Menginisialisasi Foundation Model backend='{self.backend}'...")
+                self.labeler = FoundationLabeler(backend=self.backend, model_id=self.model_id)
+                print(f"[Annotator] Pre-labeler aktif dengan threshold {self.conf_thresh}.")
+            except Exception as e:
+                print(f"[Annotator WARNING] Gagal menginisialisasi pre-labeler ({e}).")
+                print("[Annotator] Berjalan dalam mode manual murni.")
+                self.backend = "none"
+        return self.labeler
+
     def _gather_images(self):
         exts = ("*.jpg", "*.jpeg", "*.png", "*.bmp")
         imgs = []
-        for ext in exts:
-            imgs.extend(glob.glob(os.path.join(self.raw_dir, "**", ext), recursive=True))
+
+        # 1. Coba cari di folder raw_dir (default: dataset_raw)
+        if os.path.exists(self.raw_dir):
+            for ext in exts:
+                imgs.extend(glob.glob(os.path.join(self.raw_dir, "**", ext), recursive=True))
+
+        # 2. Smart Fallback: Jika raw_dir kosong/tidak ada, otomatis baca dari output_dir/images (dataset_annotated/images)
+        if not imgs and os.path.exists(self.img_dir):
+            print(f"[Annotator] Folder '{self.raw_dir}' kosong/tidak ditemukan.")
+            print(f"[Annotator] Menggunakan citra yang ada di '{self.img_dir}'...")
+            for ext in exts:
+                imgs.extend(glob.glob(os.path.join(self.img_dir, "**", ext), recursive=True))
+
         imgs.sort()
         return imgs
 
@@ -194,11 +209,12 @@ class DatasetAnnotator:
             self.is_background = True
             return
 
-        # 3. Pre-labeling otomatis menggunakan Foundation Model
+        # 3. Pre-labeling otomatis menggunakan Foundation Model (HANYA JIKA BELUM ADA LABEL)
         self.is_background = False
-        if self.labeler is not None:
+        labeler = self._get_labeler()
+        if labeler is not None:
             try:
-                preds = self.labeler.predict(img_bgr, box_threshold=self.conf_thresh)
+                preds = labeler.predict(img_bgr, box_threshold=self.conf_thresh)
                 for p in preds:
                     b = p["box"]
                     self.current_boxes.append(Box(p["class_id"], b[0], b[1], b[2], b[3], p["confidence"]))
