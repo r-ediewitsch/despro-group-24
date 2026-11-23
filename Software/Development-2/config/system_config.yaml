@@ -30,7 +30,7 @@ coordinator:
   move_timeout_sec: 30.0            # Waktu batas pergerakan sumbu sebelum memicu timeout error
   verify_wait_sec: 2.5              # Waktu tunggu verifikasi sensor setelah penyemprotan
   spray_radius_threshold_cm: 20.0   # Toleransi radius pergeseran api yang masih terjangkau corong semprot
-  home_after_extinguish: true       # Kembali ke titik asal (0,0) setelah api padam
+  home_after_extinguish: false      # Dinonaktifkan: prototipe belum memiliki limit switch fisik
 
 mqtt:
   broker: "broker.emqx.io"          # Public MQTT broker EMQX

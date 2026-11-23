@@ -73,8 +73,8 @@ class CentralCoordinator:
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         self.state_file_path = os.path.join(base_dir, "logs", "runtime_state.json")
 
-    def start(self, auto_home: bool = True) -> bool:
-        """Menghidupkan sistem, menghubungkan MQTT, dan mengeksekusi Homing awal."""
+    def start(self, auto_home: bool = False) -> bool:
+        """Menghidupkan sistem, menghubungkan MQTT, dan menginisialisasi status."""
         logger.info("Menjalankan Central Coordinator Deezpro...")
         self.is_running = True
 
@@ -84,11 +84,10 @@ class CentralCoordinator:
             return False
 
         if auto_home:
-            logger.info("Mengeksekusi inisialisasi Auto-Homing pada seluruh sumbu...")
-            if not self.execute_homing_all():
-                logger.error("Auto-Homing saat startup gagal! Sistem berpindah ke status FAULT.")
-                self.set_state(SystemState.FAULT)
-                return False
+            logger.warning(
+                "[SAFETY LOCK] Auto-Homing saat startup diabaikan! "
+                "Prototipe tidak memiliki limit switch fisik."
+            )
 
         self.set_state(SystemState.IDLE_MONITORING)
         logger.info("Sistem siap siaga dan berada dalam status IDLE_MONITORING.")
@@ -152,25 +151,17 @@ class CentralCoordinator:
         except Exception as e:
             logger.debug(f"Gagal menyimpan runtime state ke file: {e}")
 
-    # --- Operasi Auto-Homing ---
+    # --- Operasi Auto-Homing (Dinonaktifkan demi Keamanan Fisik) ---
     def execute_homing_all(self, timeout_sec: float = 40.0) -> bool:
         """
-        Memerintahkan auto-homing Sumbu X dan Y secara simultan
-        dan menunggu konfirmasi dari limit switch kedua sumbu.
+        Prosedur auto-homing dinonaktifkan demi keselamatan mekanik
+        karena prototipe saat ini belum memiliki limit switch fisik.
         """
-        self.set_state(SystemState.BOOT_HOMING)
-        logger.info("Menerbitkan perintah HOME ke Sumbu X dan Sumbu Y...")
-        self.mqtt.send_home_all()
-
-        success = self.mqtt.wait_for_axes_done(timeout_sec=timeout_sec)
-        if success:
-            logger.info("Auto-Homing kedua sumbu berhasil! Posisi referensi terkalibrasi ke (0, 0).")
-            self.set_state(SystemState.IDLE_MONITORING)
-            return True
-        else:
-            logger.error("Timeout menunggu konfirmasi Auto-Homing dari limit switch!")
-            self.set_state(SystemState.FAULT)
-            return False
+        logger.warning(
+            "[SAFETY LOCK] Perintah Homing ditolak! "
+            "Prototipe tidak memiliki limit switch fisik sehingga homing dinonaktifkan."
+        )
+        return False
 
     # --- Operasi Penanganan Target Api (Dispatch Target Pipeline) ---
     def dispatch_target(

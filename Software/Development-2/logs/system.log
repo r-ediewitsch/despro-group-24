@@ -286,3 +286,9 @@
 [2026-11-23 09:24:59] [INFO   ] [Deezpro.test_homography_end_to_end]: Menggunakan index kamera dari konfigurasi: 1
 [2026-11-23 09:24:59] [INFO   ] [Deezpro.test_homography_end_to_end]: Matriks distorsi lensa dimuat: calib_cam1.npz (Undistort Aktif)
 [2026-11-23 09:24:59] [WARNING] [Deezpro.test_homography_end_to_end]: [PERINGATAN] Berkas homografi 'D:\Tugas\Desain Proyek\Deezpro\Software\Development-2\config\homography_cam1.npz' belum ditemukan! Membuat matriks homografi aproksimasi default (0..Width -> 0..200 cm) agar pengujian alur tetap dapat dieksekusi. Jalankan 'calibrate_homography.py' untuk mendapatkan kalibrasi presisi.
+[2026-11-23 10:12:06] [INFO   ] [Deezpro.system_logger]: System logger aktif. Berkas log tersimpan pada: D:\Tugas\Desain Proyek\Deezpro\Software\Development-2\logs\system.log
+[2026-11-23 10:12:16] [INFO   ] [Deezpro.system_logger]: System logger aktif. Berkas log tersimpan pada: D:\Tugas\Desain Proyek\Deezpro\Software\Development-2\logs\system.log
+[2026-11-23 10:12:16] [INFO   ] [Deezpro.test_homography_end_to_end]: Kalibrasi lensa dimuat: calib_cam1.npz (Undistort Aktif)
+[2026-11-23 10:12:16] [INFO   ] [Deezpro.test_homography_end_to_end]: Kalibrasi lensa dimuat: calib_cam2.npz (Undistort Aktif)
+[2026-11-23 10:12:16] [WARNING] [Deezpro.test_homography_end_to_end]: [PERINGATAN] Berkas homografi 'D:\Tugas\Desain Proyek\Deezpro\Software\Development-2\config\homography_cam1.npz' belum ditemukan! Membuat matriks aproksimasi default untuk Kamera 1.
+[2026-11-23 10:12:16] [WARNING] [Deezpro.test_homography_end_to_end]: [PERINGATAN] Berkas homografi 'D:\Tugas\Desain Proyek\Deezpro\Software\Development-2\config\homography_cam2.npz' belum ditemukan! Membuat matriks aproksimasi default untuk Kamera 2.
