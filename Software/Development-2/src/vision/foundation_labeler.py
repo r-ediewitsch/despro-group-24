@@ -29,16 +29,19 @@ class FoundationLabeler:
 
     def __init__(self, backend: str = "grounding_dino",
                  model_id: Optional[str] = None,
-                 device: Optional[str] = None):
+                 device: Optional[str] = None,
+                 fire_only: bool = True):
         """
         Args:
             backend: 'grounding_dino', 'florence2', atau 'yolo'
             model_id: Nama model HuggingFace atau path checkpoint
             device: 'cuda', 'cpu', atau None (auto-detect)
+            fire_only: Jika True, hanya mendeteksi api (mengabaikan asap sepenuhnya)
         """
         self.backend = backend.lower()
         self.model_id = model_id
         self.device = device
+        self.fire_only = fire_only
         self.model = None
         self.processor = None
 
@@ -178,20 +181,32 @@ class FoundationLabeler:
 
         pil_img = Image.fromarray(rgb_img)
         # Grounding DINO prompt dengan separator titik (.)
-        prompt = "fire. flame. smoke."
+        prompt = "fire. flame. blaze." if self.fire_only else "fire. flame. smoke."
 
         inputs = self.processor(images=pil_img, text=prompt, return_tensors="pt").to(self.device)
 
         with torch.no_grad():
             outputs = self.model(**inputs)
 
-        results = self.processor.post_process_grounded_object_detection(
-            outputs,
-            inputs.input_ids,
-            box_threshold=box_thresh,
-            text_threshold=text_thresh,
-            target_sizes=[(h, w)]
-        )[0]
+        # Dukung kompatibilitas parameter 'threshold' (standar HuggingFace transformers)
+        # dan 'box_threshold' (pada versi alternatif / legacy)
+        post_kwargs = {
+            "outputs": outputs,
+            "input_ids": inputs.input_ids,
+            "text_threshold": text_thresh,
+            "target_sizes": [(h, w)],
+        }
+        try:
+            import inspect
+            sig = inspect.signature(self.processor.post_process_grounded_object_detection)
+            if "box_threshold" in sig.parameters:
+                post_kwargs["box_threshold"] = box_thresh
+            else:
+                post_kwargs["threshold"] = box_thresh
+        except Exception:
+            post_kwargs["threshold"] = box_thresh
+
+        results = self.processor.post_process_grounded_object_detection(**post_kwargs)[0]
 
         detections = []
         boxes = results["boxes"].cpu().numpy()
@@ -206,6 +221,9 @@ class FoundationLabeler:
             y2 = max(0, min(h - 1, y2))
 
             cls_id = self._map_label_to_class(label)
+            if self.fire_only and cls_id == 0:
+                continue  # Abaikan deteksi asap jika mode fire_only aktif
+
             cls_name = "smoke" if cls_id == 0 else "fire"
 
             detections.append({
@@ -225,7 +243,7 @@ class FoundationLabeler:
         pil_img = Image.fromarray(rgb_img)
         # Task Florence-2: Open Vocabulary Detection / Phrase Grounding
         task_prompt = "<CAPTION_TO_PHRASE_GROUNDING>"
-        text_prompt = "fire, flame, smoke"
+        text_prompt = "fire, flame, blaze" if self.fire_only else "fire, flame, smoke"
         full_prompt = task_prompt + " " + text_prompt
 
         inputs = self.processor(text=full_prompt, images=pil_img, return_tensors="pt").to(self.device)
@@ -260,6 +278,9 @@ class FoundationLabeler:
             y2 = max(0, min(h - 1, y2))
 
             cls_id = self._map_label_to_class(label)
+            if self.fire_only and cls_id == 0:
+                continue  # Abaikan deteksi asap jika mode fire_only aktif
+
             cls_name = "smoke" if cls_id == 0 else "fire"
 
             detections.append({
@@ -279,6 +300,9 @@ class FoundationLabeler:
             boxes = results[0].boxes
             for box in boxes:
                 cls_id = int(box.cls[0].item())
+                if self.fire_only and cls_id == 0:
+                    continue  # Abaikan deteksi asap jika mode fire_only aktif
+
                 conf = float(box.conf[0].item())
                 xyxy = box.xyxy[0].tolist()
                 cls_name = "smoke" if cls_id == 0 else "fire"

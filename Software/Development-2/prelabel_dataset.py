@@ -7,8 +7,8 @@ Eksekusi Batch Pre-Labeling Otomatis Menggunakan Foundation Model (STEPS.md Fase
 - Mendukung YOLO ('models/best.pt')
 
 Skrip ini membaca seluruh citra di folder mentah (dataset_raw/), mendeteksi
-objek api ('fire') dan asap ('smoke') secara zero-shot semantik, lalu
-menghasilkan file label format YOLO (.txt) di dataset_annotated/labels/.
+objek api ('fire') secara zero-shot semantik (ASAP / SMOKE DIABAIKAN SEPENUHNYA),
+lalu menghasilkan file label format YOLO (.txt) di dataset_annotated/labels/.
 Gambar di subfolder 'negative' otomatis diberi label file kosong (0 byte).
 """
 
@@ -27,23 +27,27 @@ import cv2
 
 def run_batch_prelabel(raw_dir="dataset_raw", out_dir="dataset_annotated",
                        backend="grounding_dino", model_id=None,
-                       box_thresh=0.30, device=None):
+                       box_thresh=0.30, device=None,
+                       fire_only=True, fire_class_id=1):
     img_dir = os.path.join(out_dir, "images")
     lbl_dir = os.path.join(out_dir, "labels")
     os.makedirs(img_dir, exist_ok=True)
     os.makedirs(lbl_dir, exist_ok=True)
 
+    target_desc = f"HANYA API / FIRE (Class ID: {fire_class_id}, Asap Diabaikan)" if fire_only else "API & ASAP (Multi-Class)"
+
     print("\n" + "=" * 65)
     print("BATCH PRE-LABELING DENGAN FOUNDATION MODEL")
     print(f"  - Sumber Citra : {raw_dir}")
     print(f"  - Output Label : {lbl_dir}")
+    print(f"  - Target Objek : {target_desc}")
     print(f"  - Backend      : {backend}")
     print(f"  - Model ID     : {model_id or 'Default HuggingFace'}")
     print(f"  - Box Thresh   : {box_thresh}")
     print("=" * 65 + "\n")
 
-    # Inisialisasi Foundation Model
-    labeler = FoundationLabeler(backend=backend, model_id=model_id, device=device)
+    # Inisialisasi Foundation Model (dengan opsi fire_only)
+    labeler = FoundationLabeler(backend=backend, model_id=model_id, device=device, fire_only=fire_only)
 
     # Temukan semua gambar mentah
     exts = ("*.jpg", "*.jpeg", "*.png", "*.bmp")
@@ -90,15 +94,19 @@ def run_batch_prelabel(raw_dir="dataset_raw", out_dir="dataset_annotated",
             print(f"[WARNING] Gagal memproses {base_name}: {e}")
             preds = []
 
+        # Filter ketat: Pastikan tidak ada objek asap jika mode fire_only aktif
+        if fire_only:
+            preds = [p for p in preds if p.get("class_name") == "fire" or p.get("class_id") == fire_class_id]
+
         if len(preds) == 0:
-            # Tidak ada deteksi api/asap -> simpan sebagai background 0 byte
+            # Tidak ada deteksi api -> simpan sebagai background 0 byte
             open(target_lbl_path, "w").close()
             bg_count += 1
-            print(f"[{idx+1}/{len(all_imgs)}] {base_name}: Tidak ada api/asap (0 byte)")
+            print(f"[{idx+1}/{len(all_imgs)}] {base_name}: Tidak ada api (0 byte / background)")
         else:
             with open(target_lbl_path, "w") as f:
                 for p in preds:
-                    cls_id = p["class_id"]
+                    cls_id = fire_class_id if fire_only else p["class_id"]
                     x1, y1, x2, y2 = p["box"]
                     # Format YOLO: <class_id> <x_center> <y_center> <width> <height> (0.0 - 1.0)
                     xc = ((x1 + x2) / 2.0) / w
@@ -108,14 +116,14 @@ def run_batch_prelabel(raw_dir="dataset_raw", out_dir="dataset_annotated",
                     f.write(f"{cls_id} {xc:.6f} {yc:.6f} {bw:.6f} {bh:.6f}\n")
             total_boxes += len(preds)
             labels_summary = ", ".join([f"{p['class_name']}({p['confidence']:.2f})" for p in preds])
-            print(f"[{idx+1}/{len(all_imgs)}] {base_name}: {len(preds)} box [{labels_summary}]")
+            print(f"[{idx+1}/{len(all_imgs)}] {base_name}: {len(preds)} box api [{labels_summary}]")
 
     elapsed = time.time() - start_time
     print("\n" + "=" * 65)
     print("PRE-LABELING SELESAI")
     print(f"  - Waktu Eksekusi    : {elapsed:.1f} detik ({elapsed/len(all_imgs):.2f} detik/gambar)")
     print(f"  - Total Gambar      : {len(all_imgs)}")
-    print(f"  - Total Bounding Box: {total_boxes}")
+    print(f"  - Total Bounding Box: {total_boxes} (Hanya Api)")
     print(f"  - Total Background  : {bg_count} (file 0-byte)")
     print(f"  - Direktori Label   : {lbl_dir}")
     print("\nLangkah selanjutnya:")
@@ -125,7 +133,7 @@ def run_batch_prelabel(raw_dir="dataset_raw", out_dir="dataset_annotated",
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Batch Pre-labeling Dataset Deezpro Menggunakan Foundation Model")
+    parser = argparse.ArgumentParser(description="Batch Pre-labeling Dataset Deezpro Menggunakan Foundation Model (Fokus Api)")
     parser.add_argument("--raw", default="dataset_raw", help="Direktori citra mentah (default: dataset_raw)")
     parser.add_argument("--out", default="dataset_annotated", help="Direktori target output (default: dataset_annotated)")
     parser.add_argument("--backend", default="grounding_dino", choices=["grounding_dino", "florence2", "yolo"],
@@ -135,6 +143,10 @@ def main():
     parser.add_argument("--box-thresh", type=float, default=0.30,
                         help="Confidence threshold bounding box (default: 0.30)")
     parser.add_argument("--device", default=None, help="Device eksekusi ('cuda' atau 'cpu')")
+    parser.add_argument("--include-smoke", action="store_true", default=False,
+                        help="Sertakan deteksi asap (default: False, fokus hanya pada api)")
+    parser.add_argument("--fire-class-id", type=int, default=1,
+                        help="Class ID untuk kelas api di file label YOLO (default: 1)")
     args = parser.parse_args()
 
     run_batch_prelabel(
@@ -143,7 +155,9 @@ def main():
         backend=args.backend,
         model_id=args.model_id,
         box_thresh=args.box_thresh,
-        device=args.device
+        device=args.device,
+        fire_only=not args.include_smoke,
+        fire_class_id=args.fire_class_id
     )
 
 
