@@ -1,14 +1,14 @@
 {
-  "timestamp": 1795072801.821425,
-  "timestamp_str": "2026-11-19 14:20:01",
+  "timestamp": 1795159129.113373,
+  "timestamp_str": "2026-11-20 14:18:49",
   "system_state": "INIT",
   "current_position_cm": {
-    "x": 10.0,
-    "y": 10.0
+    "x": 25.5,
+    "y": 40.5
   },
   "current_position_steps": {
     "x": 0,
-    "y": -3300
+    "y": 0
   },
   "last_active_target_cm": null,
   "last_active_target_steps": null,
@@ -18,15 +18,15 @@
       "state": "DONE",
       "pos": 0,
       "target": 0,
-      "seq": 114,
-      "last_seen": 1795072789.7053225
+      "seq": 129,
+      "last_seen": 1795159120.7271733
     },
     "y": {
       "state": "DONE",
-      "pos": -3300,
-      "target": -3300,
-      "seq": 115,
-      "last_seen": 1795072788.0674064
+      "pos": 0,
+      "target": 0,
+      "seq": 130,
+      "last_seen": 1795159120.8463686
     },
     "apar": {
       "state": "OFFLINE",
