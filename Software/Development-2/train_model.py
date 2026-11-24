@@ -1,13 +1,12 @@
 """
 =====================================================================
-DEEZPRO - FIRE & SMOKE YOLO TRAINING PIPELINE
+DEEZPRO - FIRE & SMOKE YOLO TRAINING PIPELINE (HPC PROFILE)
 =====================================================================
 File: train_model.py
 Deskripsi: Script training YOLOv8/YOLO11 untuk model deteksi api dan asap.
-           Dikonfigurasi khusus agar optimal pada GPU Laptop (RTX 3050 4GB VRAM)
-           dengan tetap mempertahankan kualitas akurasi setara GPU Server (HPC)
-           melalui Automatic Gradient Accumulation, Cosine LR, dan Augmentasi
-           kecerahan/warna khas arena fisik Deezpro.
+           Dikonfigurasi default untuk High-Performance Computing (HPC)
+           GPU Server (16GB - 24GB+ VRAM, multi-core CPU, batch 32, workers 8)
+           dengan Cosine LR scheduler, FP16 AMP, dan augmentasi webcam protection.
 =====================================================================
 """
 
@@ -57,15 +56,15 @@ def train_fire_model(
     data_yaml="dataset_combined/data.yaml",
     base_model="yolov8s.pt",
     epochs=60,
-    batch=8,
+    batch=32,
     imgsz=640,
     device=0 if torch.cuda.is_available() else "cpu",
-    workers=4,
+    workers=8,
     project="runs/fire_detection",
-    name="deezpro_rtx3050_run",
+    name="deezpro_hpc_run",
     auto_export_to_models=True
 ):
-    """Menjalankan siklus training YOLO dengan hyperparameter yang ditune untuk RTX 3050 4GB."""
+    """Menjalankan siklus training YOLO dengan konfigurasi hyperparameter HPC."""
     
     current_dir = os.path.dirname(os.path.abspath(__file__))
     data_path = os.path.join(current_dir, data_yaml) if not os.path.isabs(data_yaml) else data_yaml
@@ -111,10 +110,10 @@ def train_fire_model(
         data=data_path,
         epochs=epochs,
         patience=15,             # Hentikan lebih awal jika mAP tidak membaik selama 15 epoch berturut-turut
-        batch=batch,             # Aman dari OOM pada GPU 4GB VRAM
+        batch=batch,             # Batch size (HPC: 32)
         imgsz=imgsz,             # Standar detail spasial api
         device=device,
-        workers=workers,         # Efisien untuk CPU laptop tanpa membebani RAM sistem
+        workers=workers,         # Multi-core CPU workers (HPC: 8)
         optimizer="AdamW",
         lr0=0.001,
         lrf=0.01,                # Learning rate akhir mencapai 1% dari awal
@@ -125,8 +124,8 @@ def train_fire_model(
         flipud=0.0,              # Matikan flip vertikal (api tidak pernah terbakar terbalik ke bawah)
         fliplr=0.5,              # Flip horizontal 50%
         hsv_h=0.015,             # Variasi hue spektrum lidah api
-        hsv_s=0.3,               # Lindungi saturasi tepian kuning/oranye api
-        hsv_v=0.2,               # Lindungi kontras eksposur inti putih api
+        hsv_s=0.5,               # Variasi saturasi asap
+        hsv_v=0.4,               # Variasi kecerahan arena pencahayaan webcam
         amp=True,                # Mixed Precision FP16
         project=project,
         name=name
@@ -174,23 +173,23 @@ def train_fire_model(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Script Training YOLOv8 Deezpro (Optimized for RTX 3050 4GB)")
+    parser = argparse.ArgumentParser(description="Script Training YOLOv8 Deezpro (HPC Server Profile)")
     parser.add_argument("--data", default="dataset_combined/data.yaml",
                         help="Path ke file data.yaml (default: dataset_combined/data.yaml)")
     parser.add_argument("--model", default="yolov8s.pt",
                         help="Pre-trained checkpoint (default: yolov8s.pt atau yolov8n.pt)")
     parser.add_argument("--epochs", type=int, default=60,
                         help="Jumlah epochs training (default: 60)")
-    parser.add_argument("--batch", type=int, default=8,
-                        help="Ukuran batch size (default: 8 untuk 4GB VRAM)")
+    parser.add_argument("--batch", type=int, default=32,
+                        help="Ukuran batch size (default: 32 untuk GPU HPC 16GB-24GB VRAM)")
     parser.add_argument("--imgsz", type=int, default=640,
                         help="Resolusi dimensi input gambar (default: 640)")
-    parser.add_argument("--workers", type=int, default=4,
-                        help="Jumlah CPU worker dataloader (default: 4)")
+    parser.add_argument("--workers", type=int, default=8,
+                        help="Jumlah CPU worker dataloader (default: 8 untuk CPU HPC multi-core)")
     parser.add_argument("--project", default="runs/fire_detection",
                         help="Direktori penyimpanan run (default: runs/fire_detection)")
-    parser.add_argument("--name", default="deezpro_rtx3050_run",
-                        help="Nama folder eksperimen (default: deezpro_rtx3050_run)")
+    parser.add_argument("--name", default="deezpro_hpc_run",
+                        help="Nama folder eksperimen (default: deezpro_hpc_run)")
     parser.add_argument("--no-export", action="store_true",
                         help="Jangan otomatis perbarui models/best.pt")
 
