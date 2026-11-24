@@ -11,6 +11,8 @@ Proposal*
 **/labels/**/*.txt
 *.pt
 results.csv
+runs/
+**/runs/
 
 # PyInstaller
 pw-browsers/

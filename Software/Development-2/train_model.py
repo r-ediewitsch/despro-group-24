@@ -68,6 +68,7 @@ def train_fire_model(
     
     current_dir = os.path.dirname(os.path.abspath(__file__))
     data_path = os.path.join(current_dir, data_yaml) if not os.path.isabs(data_yaml) else data_yaml
+    project_path = os.path.join(current_dir, project) if not os.path.isabs(project) else project
 
     if not os.path.exists(data_path):
         print(f"[ERROR] Berkas data konfigurasi dataset tidak ditemukan di: {data_path}")
@@ -102,7 +103,7 @@ def train_fire_model(
     print(f"  - Resolusi Input     : {imgsz} x {imgsz} px")
     print(f"  - Optimizer          : AdamW (lr0=0.001, Cosine Annealing Scheduler)")
     print(f"  - Precision Mode     : FP16 AMP (Automatic Mixed Precision)")
-    print(f"  - Folder Output      : {project}/{name}")
+    print(f"  - Folder Output      : {project_path}/{name}")
     print("=" * 65 + "\n")
 
     # Eksekusi proses training
@@ -127,7 +128,7 @@ def train_fire_model(
         hsv_s=0.5,               # Variasi saturasi asap
         hsv_v=0.4,               # Variasi kecerahan arena pencahayaan webcam
         amp=True,                # Mixed Precision FP16
-        project=project,
+        project=project_path,
         name=name
     )
 
@@ -143,7 +144,7 @@ def train_fire_model(
     # Salin bobot terbaik ke direktori models/best.pt
     if auto_export_to_models:
         try:
-            save_dir = str(results.save_dir) if hasattr(results, 'save_dir') else os.path.join(project, name)
+            save_dir = str(results.save_dir) if hasattr(results, 'save_dir') else os.path.join(project_path, name)
             best_weight_src = os.path.join(save_dir, "weights", "best.pt")
             target_models_dir = os.path.join(current_dir, "models")
             target_best_pt = os.path.join(target_models_dir, "best.pt")
