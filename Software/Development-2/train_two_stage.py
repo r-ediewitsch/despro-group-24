@@ -318,16 +318,21 @@ def prepare_two_stage_datasets(
     # Salin degraded D-Fire untuk Stage 1
     dfire_s1 = public_pairs[:num_dfire_stage1]
     if dfire_s1:
-        print(f"  [+] Memproses {len(dfire_s1)} foto D-Fire degraded untuk Stage 1...")
+        print(f"  [+] Menyiapkan {len(dfire_s1)} foto D-Fire untuk Stage 1...")
         for img_p, lbl_p in dfire_s1:
             fname = "dfire_" + os.path.basename(img_p)
             dst_img = os.path.join(s1_train_img, fname)
             dst_lbl = os.path.join(s1_train_lbl, os.path.splitext(fname)[0] + ".txt")
-            img = cv2.imread(img_p)
-            if img is not None:
-                cv2.imwrite(dst_img, degrade_image_sensor(img))
-            else:
+            
+            # Jika file sudah berawalan 'pub_', berarti sudah didegrade di dataset_combined (hindari double degrade)
+            if os.path.basename(img_p).startswith("pub_"):
                 shutil.copy2(img_p, dst_img)
+            else:
+                img = cv2.imread(img_p)
+                if img is not None:
+                    cv2.imwrite(dst_img, degrade_image_sensor(img))
+                else:
+                    shutil.copy2(img_p, dst_img)
             shutil.copy2(lbl_p, dst_lbl)
     else:
         print("  [PERINGATAN] Data D-Fire tidak ditemukan! Mengisi train Stage 1 dengan data lokal.")
@@ -370,16 +375,21 @@ def prepare_two_stage_datasets(
         dfire_s2 = public_pairs[:num_dfire_stage2]
 
     if dfire_s2:
-        print(f"  [+] Memproses {len(dfire_s2)} foto D-Fire degraded pendamping Stage 2...")
+        print(f"  [+] Menyiapkan {len(dfire_s2)} foto D-Fire pendamping Stage 2...")
         for img_p, lbl_p in dfire_s2:
             fname = "dfire_" + os.path.basename(img_p)
             dst_img = os.path.join(s2_train_img, fname)
             dst_lbl = os.path.join(s2_train_lbl, os.path.splitext(fname)[0] + ".txt")
-            img = cv2.imread(img_p)
-            if img is not None:
-                cv2.imwrite(dst_img, degrade_image_sensor(img))
-            else:
+
+            # Hindari double degrade jika sudah berawalan 'pub_'
+            if os.path.basename(img_p).startswith("pub_"):
                 shutil.copy2(img_p, dst_img)
+            else:
+                img = cv2.imread(img_p)
+                if img is not None:
+                    cv2.imwrite(dst_img, degrade_image_sensor(img))
+                else:
+                    shutil.copy2(img_p, dst_img)
             shutil.copy2(lbl_p, dst_lbl)
 
     # Generate 350 Copy-Paste Sintetis
