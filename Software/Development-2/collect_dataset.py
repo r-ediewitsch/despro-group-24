@@ -135,6 +135,9 @@ class DatasetCollector:
                 print("[Collector] Aliran video selesai atau terputus.")
                 break
 
+            # Putar 180 derajat karena posisi kamera pada prototype terbalik
+            raw_frame = cv2.rotate(raw_frame, cv2.ROTATE_180)
+
             # Undistort lens geometry
             frame = self.undistort(raw_frame)
             display = frame.copy()

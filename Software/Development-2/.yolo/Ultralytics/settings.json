@@ -1,0 +1,19 @@
+{
+  "settings_version": "0.0.8",
+  "datasets_dir": "D:\\Tugas\\Desain Proyek\\datasets",
+  "weights_dir": "D:\\Tugas\\Desain Proyek\\Deezpro\\weights",
+  "runs_dir": "D:\\Tugas\\Desain Proyek\\Deezpro\\runs",
+  "uuid": "319a8cdc89ac7e21d9d56b901aaa5e3982a1ab459c4f8845a272725c8f42c9bc",
+  "sync": true,
+  "api_key": "",
+  "openai_api_key": "",
+  "clearml": true,
+  "comet": true,
+  "dvc": true,
+  "mlflow": true,
+  "raytune": true,
+  "tensorboard": false,
+  "wandb": false,
+  "vscode_msg": true,
+  "openvino_msg": true
+}

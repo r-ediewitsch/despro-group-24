@@ -1,0 +1,10 @@
+# Deezpro Combined Fire & Smoke Dataset Configuration
+# Merged from Local Camera (512 samples) + Public Dataset (1500 samples)
+
+path: D:/Tugas/Desain Proyek/Deezpro/Software/Development-2/dataset_combined
+train: images/train
+val: images/val
+
+names:
+  0: smoke
+  1: fire

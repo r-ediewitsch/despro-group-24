@@ -267,6 +267,9 @@ class HomographyGuiApp:
                         time.sleep(0.01)
                         continue
 
+                    # Putar 180 derajat karena posisi kamera pada prototype terbalik
+                    frame = cv2.rotate(frame, cv2.ROTATE_180)
+
                     # Undistort frame secara real-time
                     if self.map1 is not None and self.map2 is not None:
                         frame = cv2.remap(frame, self.map1, self.map2, interpolation=cv2.INTER_LINEAR)

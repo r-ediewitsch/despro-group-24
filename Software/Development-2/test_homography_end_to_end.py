@@ -173,6 +173,8 @@ class ThreadedCamera:
         self.actual_w = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.actual_h = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.ret, self.frame = self.cap.read()
+        if self.ret and self.frame is not None:
+            self.frame = cv2.rotate(self.frame, cv2.ROTATE_180)
         self.lock = threading.Lock()
         self.running = True
 
@@ -184,6 +186,8 @@ class ThreadedCamera:
         while self.running:
             ret, frame = self.cap.read()
             if ret and frame is not None:
+                # Putar 180 derajat karena posisi kamera pada prototype terbalik
+                frame = cv2.rotate(frame, cv2.ROTATE_180)
                 with self.lock:
                     self.ret = ret
                     self.frame = frame

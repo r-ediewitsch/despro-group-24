@@ -285,6 +285,9 @@ def main():
                 time.sleep(0.005)
                 continue
 
+            # Putar 180 derajat karena posisi kamera pada prototype terbalik
+            raw_frame = cv2.rotate(raw_frame, cv2.ROTATE_180)
+
             curr_time = time.time()
             fps = 1.0 / max(curr_time - prev_time, 1e-5)
             prev_time = curr_time
