@@ -121,9 +121,12 @@ def train_fire_model(
         cos_lr=True,             # Cosine learning rate scheduler
         warmup_epochs=3.0,       # Pemanasan gradien di 3 epoch pertama
         close_mosaic=10,         # Nonaktifkan augmentasi mosaic di 10 epoch terakhir untuk memantapkan bbox
+        mosaic=0.2,              # Mozaik moderat agar api kecil tidak mengecil menjadi titik LED
+        flipud=0.0,              # Matikan flip vertikal (api tidak pernah terbakar terbalik ke bawah)
+        fliplr=0.5,              # Flip horizontal 50%
         hsv_h=0.015,             # Variasi hue spektrum lidah api
-        hsv_s=0.5,               # Variasi saturasi kepulan asap
-        hsv_v=0.4,               # Variasi kecerahan arena pencahayaan webcam
+        hsv_s=0.3,               # Lindungi saturasi tepian kuning/oranye api
+        hsv_v=0.2,               # Lindungi kontras eksposur inti putih api
         amp=True,                # Mixed Precision FP16
         project=project,
         name=name
