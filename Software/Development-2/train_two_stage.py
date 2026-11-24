@@ -215,6 +215,24 @@ def prepare_two_stage_datasets(
                 else:
                     local_negative_pairs.append((img_p, txt_p))
 
+    # Fallback pintar: jika dataset_annotated kosong di server, cari dari dataset_combined
+    if not local_positive_pairs and not local_negative_pairs:
+        comb_dir = os.path.join(current_dir, "dataset_combined")
+        if os.path.exists(comb_dir):
+            print(f"  [i] Mengambil data lokal dari '{comb_dir}' karena '{local_dir}' tidak berisi gambar...")
+            for sub in ["train", "val"]:
+                sub_img = os.path.join(comb_dir, "images", sub)
+                sub_lbl = os.path.join(comb_dir, "labels", sub)
+                for img_p in glob.glob(os.path.join(sub_img, "local_*.*")):
+                    base = os.path.splitext(os.path.basename(img_p))[0]
+                    lbl_p = os.path.join(sub_lbl, base + ".txt")
+                    if os.path.exists(lbl_p):
+                        with open(lbl_p, "r", encoding="utf-8") as f:
+                            if f.read().strip():
+                                local_positive_pairs.append((img_p, lbl_p))
+                            else:
+                                local_negative_pairs.append((img_p, lbl_p))
+
     random.seed(42)
     np.random.seed(42)
 
@@ -239,20 +257,46 @@ def prepare_two_stage_datasets(
 
     # 2. Kumpulkan data publik D-Fire
     public_pairs = []
-    if os.path.exists(public_dir):
-        pub_img_dir = os.path.join(public_dir, "images")
-        pub_lbl_dir = os.path.join(public_dir, "labels")
-        pub_imgs = glob.glob(os.path.join(pub_img_dir, "**", "*.jpg"), recursive=True)
-        for img_p in pub_imgs:
-            base = os.path.splitext(os.path.basename(img_p))[0]
-            sub = os.path.basename(os.path.dirname(img_p))
-            lbl_candidate = os.path.join(pub_lbl_dir, sub, base + ".txt")
-            if not os.path.exists(lbl_candidate):
-                lbl_candidate = os.path.join(pub_lbl_dir, base + ".txt")
-            if os.path.exists(lbl_candidate):
-                public_pairs.append((img_p, lbl_candidate))
+    # Cek lokasi public_dir yang diberikan atau cari kandidat umum
+    candidate_public_dirs = [
+        public_dir,
+        os.path.normpath(os.path.join(current_dir, "..", "Development", "fire-detection", "datasets")),
+        os.path.normpath(os.path.join(current_dir, "..", "..", "fire-detection", "datasets")),
+        os.path.normpath(os.path.join(current_dir, "..", "datasets")),
+    ]
 
-    print(f"  - D-Fire data : {len(public_pairs)} foto ditemukan")
+    for pdir in candidate_public_dirs:
+        if os.path.exists(pdir):
+            pub_img_dir = os.path.join(pdir, "images")
+            pub_lbl_dir = os.path.join(pdir, "labels")
+            pub_imgs = glob.glob(os.path.join(pub_img_dir, "**", "*.jpg"), recursive=True)
+            for img_p in pub_imgs:
+                base = os.path.splitext(os.path.basename(img_p))[0]
+                sub = os.path.basename(os.path.dirname(img_p))
+                lbl_candidate = os.path.join(pub_lbl_dir, sub, base + ".txt")
+                if not os.path.exists(lbl_candidate):
+                    lbl_candidate = os.path.join(pub_lbl_dir, base + ".txt")
+                if os.path.exists(lbl_candidate):
+                    public_pairs.append((img_p, lbl_candidate))
+            if public_pairs:
+                print(f"  - D-Fire data ditemukan di '{pdir}': {len(public_pairs)} foto")
+                break
+
+    # Fallback publik: ambil dari dataset_combined jika ada
+    if not public_pairs:
+        comb_dir = os.path.join(current_dir, "dataset_combined")
+        if os.path.exists(comb_dir):
+            for sub in ["train", "val"]:
+                sub_img = os.path.join(comb_dir, "images", sub)
+                sub_lbl = os.path.join(comb_dir, "labels", sub)
+                for img_p in glob.glob(os.path.join(sub_img, "pub_*.*")):
+                    base = os.path.splitext(os.path.basename(img_p))[0]
+                    lbl_p = os.path.join(sub_lbl, base + ".txt")
+                    if os.path.exists(lbl_p):
+                        public_pairs.append((img_p, lbl_p))
+            if public_pairs:
+                print(f"  [i] Mengambil {len(public_pairs)} foto publik dari '{comb_dir}'!")
+
     random.shuffle(public_pairs)
 
     # 3. Setup Stage 1 (1.200 degraded D-Fire train, local_val sebagai val)
@@ -386,6 +430,21 @@ def train_stage_1(
     print("=" * 70 + "\n")
 
     project_path = os.path.join(current_dir, project) if not os.path.isabs(project) else project
+
+    # Verifikasi ketersediaan gambar training sebelum memanggil Ultralytics
+    s1_train_img_dir = os.path.join(os.path.dirname(os.path.abspath(data_yaml)), "images", "train")
+    img_count = len([f for f in os.listdir(s1_train_img_dir) if f.lower().endswith(('.jpg', '.png', '.jpeg'))]) if os.path.exists(s1_train_img_dir) else 0
+    if img_count == 0:
+        raise FileNotFoundError(
+            f"\n[FATAL] Tidak ada file gambar ditemukan di: {s1_train_img_dir}\n"
+            f"Penyebab: File gambar (.jpg) diabaikan oleh Git (.gitignore), sehingga folder 'dataset_annotated/images' kosong di server HPC.\n"
+            f"Solusi:\n"
+            f"1. Jika D-Fire tersimpan di folder lain pada server, jalankan:\n"
+            f"   python train_two_stage.py --public /path/ke/folder/dfire\n"
+            f"2. Atau salin folder dataset dari laptop ke server menggunakan rsync / scp:\n"
+            f"   rsync -avzP Software/Development-2/dataset_annotated <user>@<server-ip>:~/Despro-2/despro-group-24/Software/Development-2/"
+        )
+
     model = YOLO(base_model)
 
     results = model.train(

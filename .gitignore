@@ -13,6 +13,11 @@ Proposal*
 results.csv
 runs/
 **/runs/
+*.cache
+dataset_stage1/
+dataset_stage2/
+**/dataset_stage1/
+**/dataset_stage2/
 
 # PyInstaller
 pw-browsers/
