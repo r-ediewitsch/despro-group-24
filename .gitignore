@@ -59,3 +59,8 @@ playwright/.cache/
 .DS_Store
 Thumbs.db
 *.log
+
+# Logs
+logs/
+**/logs/
+runtime_state.json
