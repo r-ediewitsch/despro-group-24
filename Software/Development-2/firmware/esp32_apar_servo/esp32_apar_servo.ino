@@ -25,9 +25,12 @@ const char* TOPIC_STATUS  = "deezpro/apar/status";
 const char* TOPIC_SYS_CMD = "deezpro/system/cmd";
 
 // --- Pinout & Kalibrasi Sudut Servo ---
-#define SERVO_PIN         18
-#define SERVO_IDLE_ANGLE  0    // Sudut tuas bebas (tidak menekan)
-#define SERVO_PRESS_ANGLE 90   // Sudut tuas tertekan penuh (menyemprot)
+// Disesuaikan dengan esp32_apar_servo_sample (GPIO 13, min 500us - max 2500us)
+#define SERVO_PIN         13
+#define SERVO_MIN_US      500
+#define SERVO_MAX_US      2500
+#define SERVO_IDLE_ANGLE  45   // Sudut tuas bebas / rileks (45 derajat)
+#define SERVO_PRESS_ANGLE 135  // Sudut tuas tertekan penuh / semprot (135 derajat)
 
 // --- Inisialisasi Objek ---
 Servo aparServo;
@@ -58,7 +61,7 @@ void setup() {
   ESP32PWM::allocateTimer(2);
   ESP32PWM::allocateTimer(3);
   aparServo.setPeriodHertz(50); // Standard 50Hz servo
-  aparServo.attach(SERVO_PIN, 500, 2400);
+  aparServo.attach(SERVO_PIN, SERVO_MIN_US, SERVO_MAX_US);
 
   // Posisi awal tuas aman (bebas)
   aparServo.write(SERVO_IDLE_ANGLE);

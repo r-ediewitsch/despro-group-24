@@ -113,7 +113,7 @@ def load_lens_calibration(calib_file: str, width: int, height: int):
     data = np.load(calib_file)
     K = data["camera_matrix"]
     D = data["dist_coeffs"]
-    new_K, roi = cv2.getOptimalNewCameraMatrix(K, D, (width, height), alpha=0.0, newImgSize=(width, height))
+    new_K, roi = cv2.getOptimalNewCameraMatrix(K, D, (width, height), alpha=1.0, newImgSize=(width, height))
     map1, map2 = cv2.initUndistortRectifyMap(K, D, None, new_K, (width, height), cv2.CV_16SC2)
     return map1, map2
 
@@ -284,9 +284,6 @@ def main():
             if not ret or raw_frame is None:
                 time.sleep(0.005)
                 continue
-
-            # Putar 180 derajat karena posisi kamera pada prototype terbalik
-            raw_frame = cv2.rotate(raw_frame, cv2.ROTATE_180)
 
             curr_time = time.time()
             fps = 1.0 / max(curr_time - prev_time, 1e-5)

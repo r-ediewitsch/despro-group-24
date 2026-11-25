@@ -119,6 +119,12 @@ def parse_arguments():
     )
     # Berkas Kalibrasi & Konfigurasi
     parser.add_argument(
+        "--alpha",
+        type=float,
+        default=1.0,
+        help="Parameter free scaling alpha OpenCV undistort (0.0=crop, 1.0=full FoV tanpa crop). Default: 1.0",
+    )
+    parser.add_argument(
         "--calib",
         type=str,
         default=None,
@@ -195,8 +201,6 @@ class ThreadedCamera:
         self.actual_w = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.actual_h = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.ret, self.frame = self.cap.read()
-        if self.ret and self.frame is not None:
-            self.frame = cv2.rotate(self.frame, cv2.ROTATE_180)
         self.lock = threading.Lock()
         self.running = True
 
@@ -208,8 +212,6 @@ class ThreadedCamera:
         while self.running:
             ret, frame = self.cap.read()
             if ret and frame is not None:
-                # Rotasi 180 derajat sesuai posisi mounting fisik kamera
-                frame = cv2.rotate(frame, cv2.ROTATE_180)
                 with self.lock:
                     self.ret = ret
                     self.frame = frame
@@ -400,12 +402,15 @@ class AutoHomographyYoloRunner:
             if os.path.exists(calib_path):
                 try:
                     data = np.load(calib_path)
-                    mtx, dist = data["mtx"], data["dist"]
+                    K = data["camera_matrix"] if "camera_matrix" in data else data.get("mtx")
+                    D = data["dist_coeffs"] if "dist_coeffs" in data else data.get("dist")
                     w, h = self.args.width, self.args.height
+                    alpha = getattr(self.args, "alpha", 1.0)
+                    new_K, _ = cv2.getOptimalNewCameraMatrix(K, D, (w, h), alpha=alpha, newImgSize=(w, h))
                     self.map1, self.map2 = cv2.initUndistortRectifyMap(
-                        mtx, dist, None, mtx, (w, h), cv2.CV_32FC1
+                        K, D, None, new_K, (w, h), cv2.CV_16SC2
                     )
-                    logger.info(f"Kalibrasi lensa Kamera {self.cam_id} aktif: {calib_path}")
+                    logger.info(f"Kalibrasi lensa Kamera {self.cam_id} aktif: {calib_path} (alpha={alpha})")
                 except Exception as e:
                     logger.warning(f"Gagal memuat peta undistort Kamera {self.cam_id}: {e}")
 
@@ -432,12 +437,16 @@ class AutoHomographyYoloRunner:
 
         if not self.args.no_undistort:
             w, h = self.args.width, self.args.height
+            alpha = getattr(self.args, "alpha", 1.0)
             c1_path = os.path.join(current_dir, "config", "calib_cam1.npz")
             if os.path.exists(c1_path):
                 try:
                     d = np.load(c1_path)
+                    K1 = d["camera_matrix"] if "camera_matrix" in d else d.get("mtx")
+                    D1 = d["dist_coeffs"] if "dist_coeffs" in d else d.get("dist")
+                    new_K1, _ = cv2.getOptimalNewCameraMatrix(K1, D1, (w, h), alpha=alpha, newImgSize=(w, h))
                     self.map1_c1, self.map2_c1 = cv2.initUndistortRectifyMap(
-                        d["mtx"], d["dist"], None, d["mtx"], (w, h), cv2.CV_32FC1
+                        K1, D1, None, new_K1, (w, h), cv2.CV_16SC2
                     )
                 except Exception as e:
                     logger.warning(f"Gagal memuat kalibrasi Cam 1: {e}")
@@ -446,8 +455,11 @@ class AutoHomographyYoloRunner:
             if os.path.exists(c2_path):
                 try:
                     d = np.load(c2_path)
+                    K2 = d["camera_matrix"] if "camera_matrix" in d else d.get("mtx")
+                    D2 = d["dist_coeffs"] if "dist_coeffs" in d else d.get("dist")
+                    new_K2, _ = cv2.getOptimalNewCameraMatrix(K2, D2, (w, h), alpha=alpha, newImgSize=(w, h))
                     self.map1_c2, self.map2_c2 = cv2.initUndistortRectifyMap(
-                        d["mtx"], d["dist"], None, d["mtx"], (w, h), cv2.CV_32FC1
+                        K2, D2, None, new_K2, (w, h), cv2.CV_16SC2
                     )
                 except Exception as e:
                     logger.warning(f"Gagal memuat kalibrasi Cam 2: {e}")

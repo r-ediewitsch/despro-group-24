@@ -22,8 +22,8 @@ stepper:
  
 apar:
   default_spray_duration_ms: 3000   # Durasi penyemprotan APAR (milidetik)
-  servo_idle_angle: 0               # Posisi sudut servo tuas bebas (derajat)
-  servo_press_angle: 90             # Posisi sudut servo tuas tertekan (derajat)
+  servo_idle_angle: 45              # Posisi sudut servo tuas bebas (derajat) - teruji sample
+  servo_press_angle: 135            # Posisi sudut servo tuas tertekan (derajat) - teruji sample
 
 coordinator:
   max_spray_retries: 3              # Batas maksimum percobaan semprot sebelum masuk status FAULT

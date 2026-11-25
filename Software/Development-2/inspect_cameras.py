@@ -125,8 +125,6 @@ def run_camera_inspector(config_path="config/system_config.yaml"):
                 cv2.putText(disp, f"CAM INDEX {idx} (NO FEED)", (20, 160),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             else:
-                # Putar 180 derajat karena kamera terpasang terbalik pada prototype
-                frame = cv2.rotate(frame, cv2.ROTATE_180)
                 disp = cv2.resize(frame, (thumb_w, thumb_h))
 
             # Beri label status pada masing-masing feed

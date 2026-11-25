@@ -173,8 +173,6 @@ class ThreadedCamera:
         self.actual_w = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.actual_h = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.ret, self.frame = self.cap.read()
-        if self.ret and self.frame is not None:
-            self.frame = cv2.rotate(self.frame, cv2.ROTATE_180)
         self.lock = threading.Lock()
         self.running = True
 
@@ -186,8 +184,6 @@ class ThreadedCamera:
         while self.running:
             ret, frame = self.cap.read()
             if ret and frame is not None:
-                # Putar 180 derajat karena posisi kamera pada prototype terbalik
-                frame = cv2.rotate(frame, cv2.ROTATE_180)
                 with self.lock:
                     self.ret = ret
                     self.frame = frame
@@ -340,7 +336,7 @@ class HomographyEndToEndApp:
                 else:
                     D = np.zeros(5)
 
-                new_K, _ = cv2.getOptimalNewCameraMatrix(K, D, (width, height), alpha=0.0, newImgSize=(width, height))
+                new_K, _ = cv2.getOptimalNewCameraMatrix(K, D, (width, height), alpha=1.0, newImgSize=(width, height))
                 map1, map2 = cv2.initUndistortRectifyMap(K, D, None, new_K, (width, height), cv2.CV_16SC2)
                 logger.info(f"Kalibrasi lensa dimuat: {os.path.basename(calib_file)} (Undistort Aktif)")
                 return map1, map2

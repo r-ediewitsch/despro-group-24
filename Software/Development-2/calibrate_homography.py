@@ -70,6 +70,12 @@ def parse_arguments():
         help="Aktifkan langsung mode verifikasi menggunakan berkas homografi yang sudah ada.",
     )
     parser.add_argument(
+        "--alpha",
+        type=float,
+        default=1.0,
+        help="Parameter free scaling alpha OpenCV undistort (0.0=crop/zoom, 1.0=full FoV tanpa crop). Default: 1.0",
+    )
+    parser.add_argument(
         "--width",
         type=int,
         default=1920,
@@ -168,9 +174,10 @@ class HomographyGuiApp:
             K = data["camera_matrix"]
             D = data["dist_coeffs"]
             w, h = self.args.width, self.args.height
-            new_K, roi = cv2.getOptimalNewCameraMatrix(K, D, (w, h), alpha=0.0, newImgSize=(w, h))
+            alpha = getattr(self.args, "alpha", 1.0)
+            new_K, roi = cv2.getOptimalNewCameraMatrix(K, D, (w, h), alpha=alpha, newImgSize=(w, h))
             self.map1, self.map2 = cv2.initUndistortRectifyMap(K, D, None, new_K, (w, h), cv2.CV_16SC2)
-            logger.info(f"Kalibrasi lensa dimuat: {os.path.basename(self.calib_path)} (Undistort Aktif)")
+            logger.info(f"Kalibrasi lensa dimuat: {os.path.basename(self.calib_path)} (Undistort Aktif, alpha={alpha})")
         else:
             logger.warning(f"Berkas kalibrasi lensa ({self.calib_path}) tidak ditemukan. Berjalan tanpa undistort.")
 
@@ -266,9 +273,6 @@ class HomographyGuiApp:
                     if not ret or frame is None:
                         time.sleep(0.01)
                         continue
-
-                    # Putar 180 derajat karena posisi kamera pada prototype terbalik
-                    frame = cv2.rotate(frame, cv2.ROTATE_180)
 
                     # Undistort frame secara real-time
                     if self.map1 is not None and self.map2 is not None:
