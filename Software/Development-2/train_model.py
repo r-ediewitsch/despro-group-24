@@ -67,7 +67,17 @@ def train_fire_model(
     """Menjalankan siklus training YOLO dengan konfigurasi hyperparameter HPC."""
     
     current_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Resolusi cerdas jika input berupa path direktori folder alih-alih file data.yaml langsung
     data_path = os.path.join(current_dir, data_yaml) if not os.path.isabs(data_yaml) else data_yaml
+    if os.path.isdir(data_path):
+        candidate_yaml = os.path.join(data_path, "data.yaml")
+        if os.path.exists(candidate_yaml):
+            data_path = candidate_yaml
+        else:
+            print(f"[ERROR] Direktori '{data_path}' tidak memiliki berkas 'data.yaml'!")
+            sys.exit(1)
+
     project_path = os.path.join(current_dir, project) if not os.path.isabs(project) else project
 
     if not os.path.exists(data_path):
@@ -175,8 +185,8 @@ def train_fire_model(
 
 def main():
     parser = argparse.ArgumentParser(description="Script Training YOLOv8 Deezpro (HPC Server Profile)")
-    parser.add_argument("--data", default="dataset_combined/data.yaml",
-                        help="Path ke file data.yaml (default: dataset_combined/data.yaml)")
+    parser.add_argument("--data", "--dir", "--dataset-dir", dest="data", default="dataset_combined/data.yaml",
+                        help="Path ke file data.yaml atau direktori folder dataset (default: dataset_combined/data.yaml)")
     parser.add_argument("--model", default="yolov8s.pt",
                         help="Pre-trained checkpoint (default: yolov8s.pt atau yolov8n.pt)")
     parser.add_argument("--epochs", type=int, default=60,

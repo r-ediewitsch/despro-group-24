@@ -122,19 +122,22 @@ class DatasetAnnotator:
         exts = ("*.jpg", "*.jpeg", "*.png", "*.bmp")
         imgs = []
 
-        # 1. Coba cari di folder raw_dir (default: dataset_raw)
-        if os.path.exists(self.raw_dir):
-            for ext in exts:
-                imgs.extend(glob.glob(os.path.join(self.raw_dir, "**", ext), recursive=True))
+        # Tangani jika raw_dir berupa list (multiple folders) atau string tunggal
+        raw_dirs = self.raw_dir if isinstance(self.raw_dir, list) else [self.raw_dir]
 
-        # 2. Smart Fallback: Jika raw_dir kosong/tidak ada, otomatis baca dari output_dir/images (dataset_annotated/images)
+        for r_dir in raw_dirs:
+            if os.path.exists(r_dir):
+                for ext in exts:
+                    imgs.extend(glob.glob(os.path.join(r_dir, "**", ext), recursive=True))
+
+        # 2. Smart Fallback: Jika seluruh raw_dirs kosong, baca dari output_dir/images
         if not imgs and os.path.exists(self.img_dir):
-            print(f"[Annotator] Folder '{self.raw_dir}' kosong/tidak ditemukan.")
-            print(f"[Annotator] Menggunakan citra yang ada di '{self.img_dir}'...")
+            print(f"[Annotator] Folder sumber kosong. Menggunakan citra yang ada di '{self.img_dir}'...")
             for ext in exts:
                 imgs.extend(glob.glob(os.path.join(self.img_dir, "**", ext), recursive=True))
 
-        imgs.sort()
+        # Hapus duplikat jika ada dan urutkan
+        imgs = sorted(list(set(imgs)))
         return imgs
 
     def _mouse_callback(self, event, x, y, flags, param):
@@ -452,7 +455,8 @@ names:
 
 def main():
     parser = argparse.ArgumentParser(description="Tool Anotasi Dataset YOLO dengan Zero-Shot Pre-labeling (STEPS.md)")
-    parser.add_argument("--raw", default="dataset_raw", help="Folder berisi citra mentah (default: dataset_raw)")
+    parser.add_argument("--raw", nargs="+", default=["dataset_raw"],
+                        help="Folder berisi citra mentah (bisa lebih dari satu, contoh: --raw folder1 folder2)")
     parser.add_argument("--out", default="dataset_annotated", help="Folder output citra & label (default: dataset_annotated)")
     parser.add_argument("--backend", default="grounding_dino", choices=["grounding_dino", "florence2", "yolo", "none"],
                         help="Backend pre-labeler (default: grounding_dino)")
