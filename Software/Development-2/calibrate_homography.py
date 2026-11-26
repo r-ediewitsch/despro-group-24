@@ -196,24 +196,29 @@ class HomographyGuiApp:
             return
 
         # Mode Kalibrasi: Mendaftarkan titik baru
-        print(f"\n[TITIK {len(self.points_img) + 1} TERPILIH] Piksel Citra: ({x}, {y})")
-        print("Pilih acuan koordinat dunia fisik lantai (cm):")
-        print("  [1] Sudut Kiri-Bawah  : (10, 10)")
-        print("  [2] Sudut Kanan-Bawah : (190, 10)")
-        print("  [3] Sudut Kanan-Atas  : (190, 190)")
-        print("  [4] Sudut Kiri-Atas   : (10, 190)")
-        print("  [5] Titik Tengah      : (100, 100)")
-        print("  [M] Input manual kustom (X Y)")
+        print(f"\n" + "=" * 65)
+        print(f" [TITIK #{len(self.points_img) + 1} TERPILIH] Koordinat Piksel: ({x}, {y})")
+        print("=" * 65)
+        print(" Masukkan koordinat fisik banner 5x5 (Grid: 20cm, 60cm, 100cm, 140cm, 180cm):")
+        print("   Cara 1 [Grid Baris Kolom]: Ketik 'r c' (contoh: '1 1' untuk pojok (20,20), '3 3' pusat (100,100))")
+        print("   Cara 2 [Preset Sudut]    : [1]=Pojok (20,20)   | [2]=Pojok (180,20)")
+        print("                              [3]=Pojok (180,180) | [4]=Pojok (20,180) | [5]=Pusat (100,100)")
+        print("   Cara 3 [Koordinat Langsung]: Ketik 'X Y' langsung dalam cm (contoh: '60 100')")
+        print("-" * 65)
 
-        choice = input("Pilihan (1-5 atau ketik 'X Y' langsung) > ").strip()
+        # Definisi koordinat grid 5x5: baris 1..5 dan kolom 1..5
+        # Index: 1 -> 20cm, 2 -> 60cm, 3 -> 100cm, 4 -> 140cm, 5 -> 180cm
+        grid_values = [20.0, 60.0, 100.0, 140.0, 180.0]
 
         preset_coords = {
-            "1": (10.0, 10.0),
-            "2": (190.0, 10.0),
-            "3": (190.0, 190.0),
-            "4": (10.0, 190.0),
-            "5": (100.0, 100.0),
+            "1": (20.0, 20.0),    # Kolom 1, Baris 1
+            "2": (180.0, 20.0),   # Kolom 5, Baris 1
+            "3": (180.0, 180.0),  # Kolom 5, Baris 5
+            "4": (20.0, 180.0),   # Kolom 1, Baris 5
+            "5": (100.0, 100.0),  # Kolom 3, Baris 3 (Pusat)
         }
+
+        choice = input(" Pilihan input > ").strip()
 
         if choice in preset_coords:
             wx, wy = preset_coords[choice]
@@ -221,12 +226,24 @@ class HomographyGuiApp:
             try:
                 parts = choice.split()
                 if len(parts) >= 2:
-                    wx, wy = float(parts[0]), float(parts[1])
+                    v1, v2 = float(parts[0]), float(parts[1])
+                    # Jika user mengetik nomor baris dan kolom 1-5 (contoh: "1 2" atau "3 4")
+                    if v1 in [1, 2, 3, 4, 5] and v2 in [1, 2, 3, 4, 5] and '.' not in parts[0] and '.' not in parts[1]:
+                        # Format grid: baris (Y) dan kolom (X) atau sebaliknya
+                        # Konvensi umum: kolom=X, baris=Y
+                        c_idx = int(v1) - 1
+                        r_idx = int(v2) - 1
+                        wx = grid_values[c_idx]
+                        wy = grid_values[r_idx]
+                        print(f" -> Terdeteksi Grid [Kolom {c_idx+1}, Baris {r_idx+1}] => ({wx:.0f}, {wy:.0f}) cm")
+                    else:
+                        # Langsung koordinat cm riil
+                        wx, wy = v1, v2
                 else:
-                    print("[BATAL] Input tidak valid. Titik diabaikan.")
+                    print("[BATAL] Format tidak dikenali. Titik diabaikan.")
                     return
             except ValueError:
-                print("[BATAL] Koordinat harus berupa angka. Titik diabaikan.")
+                print("[BATAL] Input harus berupa angka. Titik diabaikan.")
                 return
 
         self.points_img.append((x, y))

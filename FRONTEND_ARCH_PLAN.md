@@ -1,6 +1,6 @@
-# Blueprint Arsitektur Frontend Deezpro (FRONTEND_ARCH_PLAN.md) — React + Vite
+# Blueprint Arsitektur Frontend JOSJIS (FRONTEND_ARCH_PLAN.md) — React + Vite
 
-Dokumen ini merinci rencana arsitektur antarmuka pengguna (*Operator Web Dashboard*) untuk sistem pemadam api otomatis Deezpro. Desain ini merupakan ekspansi dari **Milestone 5 pada [ARCH_PLAN.md](file:///d:/Tugas/Desain%20Proyek/Deezpro/ARCH_PLAN.md)**, menghubungkan sistem komputasi Python (OpenCV, YOLO, Homografi, MQTT Coordinator) dengan antarmuka web modern berbasis **React + Vite**.
+Dokumen ini merinci rencana arsitektur antarmuka pengguna (*Operator Web Dashboard*) untuk sistem pemadam api otomatis JOSJIS (sebelumnya Deezpro). Desain ini merupakan ekspansi dari **Milestone 5 pada [ARCH_PLAN.md](file:///d:/Tugas/Desain%20Proyek/Deezpro/ARCH_PLAN.md)**, menghubungkan sistem komputasi Python (OpenCV, YOLO, Homografi, MQTT Coordinator) dengan antarmuka web modern berbasis **React + Vite**.
 
 ---
 
@@ -80,7 +80,7 @@ Software/
 │   └── firmware/                       # Source code Arduino/C++ untuk 3x ESP32
 │
 ├── frontend/                           # FRONTEND REACT + VITE (SPA)
-│   ├── package.json                    # Dependensi NPM (React, Lucide, Tailwind)
+│   ├── package.json                    # Dependensi NPM (React, Phosphor/Tabler Icons, Tailwind)
 │   ├── vite.config.ts                  # Konfigurasi Vite & proxy backend
 │   ├── tailwind.config.js              # Styling tema dark industrial
 │   ├── tsconfig.json                   # Konfigurasi TypeScript
@@ -164,7 +164,7 @@ Tata letak (*wireframe*) dirancang berorientasi pada kemudahan pengawasan operat
 
 ```
 +-----------------------------------------------------------------------------------------+
-| [DEEZPRO FIRE CONTROL]   Status: [TARGET_LOCKED]   MQTT: [ONLINE]   [ ! EMERGENCY STOP ! ]|
+| [JOSJIS FIRE CONTROL]    Status: [TARGET_LOCKED]   MQTT: [ONLINE]   [ ! EMERGENCY STOP ! ]|
 +-------------------------------------------------------------+---------------------------+
 | [ PANEL DUAL VIDEO FEED (16:9) ]                            | [ 2D GANTRY DIGITAL TWIN ]|
 | +----------------------------+----------------------------+ | Lapangan Fisik 200x200 cm |
@@ -211,7 +211,7 @@ Salah satu keunggulan arsitektur ini adalah **operator tidak perlu menginstal No
    * Implementasikan `src/server/app.py`, `routes_video.py` (generator MJPEG dari `camera_stream`), dan `routes_control.py`.
 2. **Langkah 2 (Scaffolding React + Vite)**:
    * Buat proyek frontend: `npm create vite@latest frontend -- --template react-ts`.
-   * Pasang Tailwind CSS & Lucide Icons (`lucide-react`).
+   * Pasang Tailwind CSS & Icon sets terpilih (`@phosphor-icons/react`, `@tabler/icons-react`, custom SVG).
 3. **Langkah 3 (Komponen Utama Dashboard)**:
    * Buat `DualCameraView.tsx` dan `Header.tsx` (termasuk tombol E-STOP).
    * Buat `GantryDigitalTwin.tsx` menggunakan kanvas SVG responsif.
@@ -219,3 +219,56 @@ Salah satu keunggulan arsitektur ini adalah **operator tidak perlu menginstal No
 4. **Langkah 4 (Build & Packaging Terpadu)**:
    * Build frontend dan kaitkan ke `fastapi.staticfiles.StaticFiles`.
    * Buat `run_web_dashboard.py` untuk pengalaman *one-click startup*.
+
+---
+
+## 7. Aturan Desain Frontend JOSJIS (Design Rules & Anti-Pattern Guidelines)
+
+Antarmuka web operator JOSJIS dirancang sebagai **Mission-Critical Industrial Cockpit / Tactical SCADA Dashboard**, bukan landing page produk SaaS konsumer. Desain mengutamakan densitas telemetri tinggi, latensi render instan, keterbacaan kontras tinggi di ruang operasional, serta tone visual profesional bernuansa biru industrial.
+
+### 7.1 Palet Warna: Industrial Deep Blue & Tactical Cyan
+
+Sistem warna dibangun di atas fondasi warna biru fungsional (bukan tema monokrom abu-abu biasa):
+
+| Token Warna | Nilai HEX | Peruntukan & Karakter |
+| :--- | :--- | :--- |
+| **Canvas Background** | `#080D1A` | Dark Navy pekat sebagai dasar kanvas (memberikan kontras maksimal tanpa silau) |
+| **Surface Panel (Cockpit)** | `#0F172A` / `#131E36` | Lapisan panel instrumen dengan tint biru malam pekat |
+| **Subtle Border & Grid** | `#1E2E4A` / `#22385E` | Garis pembatas panel dan grid kanvas homografi 2D yang presisi |
+| **Primary Accent (Cobalt)** | `#2563EB` / `#3B82F6` | Tombol aksi primer, track status motor aktif, dan sorotan telemetri |
+| **Tactical Cyan / Reticle** | `#06B6D4` / `#38BDF8` | Crosshair homografi, vektor pelacakan api, dan indikator frekuensi data |
+| **Status Armed / Ready** | `#10B981` | Indikasi hardware ESP32 siap, status MQTT online |
+| **Status Warning / Delta** | `#F59E0B` | Peringatan disparitas spasial antar-kamera > 15 cm |
+| **Emergency & Fire Alert** | `#EF4444` | Indikator api terkonfirmasi, tombol interupsi darurat (E-STOP) |
+
+### 7.2 Tipografi Khusus Presisi Tinggi
+
+* **Interface & Headings**: Menggunakan **Space Grotesk** atau **Plus Jakarta Sans**. Memberikan karakter industrial modern, geometris, dan ketegasan instrumen teknik.
+* **Telemetri & Data Numerik**: Menggunakan **JetBrains Mono** atau **IBM Plex Mono** dengan fitur tabular numbers (`font-mono tabular-nums`). Wajib diterapkan pada:
+  * Koordinat target dan posisi motor: `X: 102.5 cm | Y: 98.0 cm`
+  * Langkah stepper: `Step X: 3851 | Step Y: 3152`
+  * Latensi & Frekuensi: `WebSocket: 18 Hz | MJPEG: 30 FPS`
+  * Log konsol dan status kode MQTT
+
+### 7.3 Daftar 10 Anti-Pattern yang DILARANG & Solusi Desain JOSJIS
+
+Berikut adalah aturan ketat untuk menghindari pola klise desain web modern yang tidak sesuai dengan instrumen industri:
+
+| No | Anti-Pattern Generik yang Dihindari | Frekuensi Klise | Aturan & Solusi Khusus JOSJIS Dashboard |
+| :---: | :--- | :---: | :--- |
+| **1** | **Feature cards dengan ikon di atas dalam grid 3 atau 4** | 63% landing pages | **DILARANG.** Tidak menggunakan deretan kartu generik sejajar. Sebagai gantinya, gunakan **Asymmetrical Cockpit Telemetry Ribbons**, panel densitas tinggi (*density docks*), serta strip status horizontal fungsional yang menyatu langsung dengan viewport kamera dan kanvas gantry. |
+| **2** | **Satu icon set seragam tanpa karakter lain (Hanya Lucide)** | 63% all pages | **DILARANG.** Jangan hanya mengimpor satu pustaka generik. Gunakan kurasi ikon gabungan: **Phosphor Icons** untuk kendali aktuator/sakelar, **Tabler Icons** untuk instrumen navigasi/sensor, serta **Custom SVG Technical Glyphs** untuk nozzle APAR, reticle homografi, dan denah rail gantry. |
+| **3** | **Warna default komponen (shadcn) dengan hanya tombol utama diubah** | 61% all pages | **DILARANG.** Jangan gunakan palet abu-abu default (zinc/slate-950 standar). Semua komponen mengadopsi token warna bertingkat **Industrial Deep Navy** dengan border pendar halus (`#1E3A5F`) dan kontras fungsional SCADA. |
+| **4** | **Tanpa font yang dipilih, atau memakai font default Inter** | 60% all pages | **DILARANG.** Hindari font default generic Inter. Terapkan hierarki ganda yang tegas: **Space Grotesk / Plus Jakarta Sans** untuk elemen navigasi/aksi dan **JetBrains Mono** untuk angka telemetri berakurasi tinggi. |
+| **5** | **Satu kata dari headline diberi warna aksen** | 52% by eye | **DILARANG.** Jangan memakai efek gaya landing page di mana satu kata dalam judul diwarnai biru/gradasi. Gunakan tipografi monolitik yang kokoh. Pembeda visual hanya disematkan pada label telemetri operasional aktual (misal: state badge `[AUTO_TARGETING]`). |
+| **6** | **Headline di tengah di atas segalanya (The centered headline)** | 51% all pages | **DILARANG.** Tidak ada judul rata tengah yang memboroskan ruang vertikal. Gunakan **Left-Aligned Cockpit HUD Bar** di mana identitas sistem berada di kiri atas, telemetri kesehatan sistem di tengah, dan kontrol darurat (E-STOP) di kanan atas. |
+| **7** | **Pill badge atau label kecil mengambang di atas headline** | 51% by eye | **DILARANG.** Hilangkan elemen dekoratif kapsul mengambang tanpa fungsi. Sebagai gantinya, gunakan baris status telemetri yang menyatu (*integrated cockpit ticker*) dengan garis pembatas berkarakter instrumen. |
+| **8** | **Setiap section fade-up saat di-scroll** | 51% all pages | **DILARANG.** Tidak boleh ada animasi scroll fade-in yang memperlambat akses visual operator. Seluruh dashboard adalah **Single-Viewport Mission Control (100vh)** tanpa scrolling. Transisi visual hanya terjadi saat data real-time berubah (*reactive state pulse*). |
+| **9** | **Ikon "AI" klise: petir, bintang kilau (sparkles), atau otak** | 47% all pages | **DILARANG.** Jangan gunakan simbol petir, sparkles, atau otak. Gunakan glif visi komputer teknis: **Target Reticle (`Crosshair`)**, **Optical Lens (`Aperture`)**, **Planar Matrix Grid (`GridFour`)**, dan **Inference Engine (`Cpu`)**. |
+| **10** | **Label huruf kapital kecil dengan letter-spacing renggang berlebih** | 42% all pages | **DILARANG.** Jangan gunakan pseudo-aesthetic tracking huruf kecil renggang yang melelahkan mata. Gunakan tipografi semantik yang bersih, ukuran proporsional (13–14px), dan teks monospace tegas untuk label status teknis. |
+
+### 7.4 Prinsip Ergonomi Antarmuka Operator
+
+1. **Safety First**: Tombol `EMERGENCY STOP` berukuran besar, kontras tinggi, dapat diakses instan dari seluruh tampilan tanpa terhalang dialog modal.
+2. **Zero-Scroll Single Cockpit**: Semua informasi krusial (Kamera 1, Kamera 2, Digital Twin 200x200 cm, Telemetri Motor X/Y/APAR, dan Log Operasi) dapat dipantau sekaligus pada satu layar display operator (1080p / 1440p).
+3. **High Signal-to-Noise Ratio**: Elemen dekoratif non-fungsional ditiadakan agar operator dapat fokus pada deteksi anomali, verifikasi api, dan kesiapan sistem aktuasi.
