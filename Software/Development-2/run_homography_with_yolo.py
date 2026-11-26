@@ -156,14 +156,14 @@ def parse_arguments():
     parser.add_argument(
         "--width",
         type=int,
-        default=1280,
-        help="Resolusi lebar tangkapan kamera individual (default: 1280).",
+        default=1920,
+        help="Resolusi lebar tangkapan kamera individual (default: 1920).",
     )
     parser.add_argument(
         "--height",
         type=int,
-        default=720,
-        help="Resolusi tinggi tangkapan kamera individual (default: 720).",
+        default=1080,
+        help="Resolusi tinggi tangkapan kamera individual (default: 1080).",
     )
     parser.add_argument(
         "--fps",
