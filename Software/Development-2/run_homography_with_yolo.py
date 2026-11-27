@@ -506,8 +506,9 @@ class AutoHomographyYoloRunner:
 
     # --- Setup Single-Camera ---
     def _init_single_mode(self):
-        cam_cfg = self.config.get("camera", {})
-        default_dev = cam_cfg.get("camera_1_index", 0) if self.cam_id == 1 else cam_cfg.get("camera_2_index", 1)
+        cams_cfg = self.config.get("cameras", {})
+        cam_key = f"cam{self.cam_id}"
+        default_dev = cams_cfg.get(cam_key, {}).get("index", self.cam_id - 1)
         self.dev_idx = self.args.source if self.args.source is not None else default_dev
 
         homo_path = self.args.homography or os.path.join(current_dir, "config", f"homography_cam{self.cam_id}.npz")
@@ -539,9 +540,12 @@ class AutoHomographyYoloRunner:
 
     # --- Setup Dual-Camera ---
     def _init_dual_mode(self):
-        cam_cfg = self.config.get("camera", {})
-        self.dev_idx1 = self.args.cam1 if self.args.cam1 is not None else cam_cfg.get("camera_1_index", 0)
-        self.dev_idx2 = self.args.cam2 if self.args.cam2 is not None else cam_cfg.get("camera_2_index", 1)
+        cams_cfg = self.config.get("cameras", {})
+        default_idx1 = cams_cfg.get("cam1", {}).get("index", 0)
+        default_idx2 = cams_cfg.get("cam2", {}).get("index", 1)
+
+        self.dev_idx1 = self.args.cam1 if self.args.cam1 is not None else default_idx1
+        self.dev_idx2 = self.args.cam2 if self.args.cam2 is not None else default_idx2
 
         h1_path = os.path.join(current_dir, "config", "homography_cam1.npz")
         h2_path = os.path.join(current_dir, "config", "homography_cam2.npz")
