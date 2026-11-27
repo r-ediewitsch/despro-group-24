@@ -39,6 +39,7 @@ import sys
 import time
 import argparse
 import threading
+from collections import deque
 from typing import Tuple, Optional, Dict, Any, List
 import numpy as np
 import cv2
@@ -97,6 +98,25 @@ def parse_arguments():
         choices=["base", "centroid"],
         default="base",
         help="Titik acuan proyeksi: 'base' (kontak dasar lantai) atau 'centroid' (tengah). Default: base.",
+    )
+    # Temporal Buffer & Stabilizer
+    parser.add_argument(
+        "--buffer-window",
+        type=int,
+        default=30,
+        help="Jumlah frame pada sliding window buffer (default: 30 frame ~1.0 detik @ 30 FPS).",
+    )
+    parser.add_argument(
+        "--min-detection-rate",
+        type=float,
+        default=0.50,
+        help="Persentase minimum deteksi dalam window untuk status TARGET_LOCKED (default: 0.50 = 50%%).",
+    )
+    parser.add_argument(
+        "--spatial-radius",
+        type=float,
+        default=25.0,
+        help="Radius maksimum (cm) untuk inlier spatial filtering di sekitar median titik api (default: 25.0 cm).",
     )
     # Konfigurasi Hardware Index Kamera
     parser.add_argument(
@@ -232,6 +252,96 @@ class ThreadedCamera:
         logger.info(f"{self.label} dimatikan.")
 
 
+class TargetStabilizer:
+    """
+    Buffer Temporal & Stabilizer Spasial untuk Deteksi Api:
+    1. Detection Rate Window (Percentage buffer):
+       Menghitung persentase frame positif dalam N frame terakhir (default: 30 frame ~1.0s).
+       Mencegah false positive dari refleksi sekejap, sekaligus toleran terhadap asap/flicker.
+    2. Spatial Inlier Averaging:
+       Menghitung median posisi (X, Y cm) dari deteksi positif, membuang outlier ekstrim,
+       dan menghitung rata-rata inlier agar koordinat target benar-benar stabil & terpusat.
+    3. Status Kunci Target:
+       is_locked = True jika detection_rate >= min_rate.
+    """
+
+    def __init__(self, window_size: int = 30, min_rate: float = 0.50, spatial_radius_cm: float = 25.0):
+        self.window_size = window_size
+        self.min_rate = min_rate
+        self.spatial_radius_cm = spatial_radius_cm
+
+        # Buffer biner: 1 jika frame ini terdeteksi api, 0 jika tidak
+        self.detection_history = deque(maxlen=window_size)
+        # Buffer koordinat fisik (X, Y cm) dari deteksi positif
+        self.coord_history = deque(maxlen=window_size)
+
+        self.is_locked = False
+        self.detection_rate = 0.0
+        self.stabilized_coord: Optional[Tuple[float, float]] = None
+        self.last_valid_coord: Optional[Tuple[float, float]] = None
+
+    def update(self, raw_coord: Optional[Tuple[float, float]]) -> Tuple[bool, Optional[Tuple[float, float]], float]:
+        """
+        Memperbarui status stabilizer dengan koordinat raw frame saat ini.
+
+        Returns:
+            Tuple[is_locked, stabilized_coord, detection_rate]
+        """
+        if raw_coord is not None:
+            self.detection_history.append(1)
+            self.coord_history.append(raw_coord)
+            self.last_valid_coord = raw_coord
+        else:
+            self.detection_history.append(0)
+
+        # 1. Hitung Rasio Deteksi (%) dalam window
+        total_frames = len(self.detection_history)
+        if total_frames > 0:
+            positive_count = sum(self.detection_history)
+            self.detection_rate = float(positive_count) / float(total_frames)
+        else:
+            self.detection_rate = 0.0
+
+        # 2. Evaluasi Kondisi Kunci Target (Target Lock)
+        self.is_locked = (self.detection_rate >= self.min_rate and len(self.coord_history) >= max(3, int(self.window_size * 0.2)))
+
+        # 3. Robust Spatial Averaging jika ada sampel koordinat
+        if len(self.coord_history) > 0 and self.is_locked:
+            coords = list(self.coord_history)
+            xs = [c[0] for c in coords]
+            ys = [c[1] for c in coords]
+
+            med_x = float(np.median(xs))
+            med_y = float(np.median(ys))
+
+            # Filter inlier: hanya sampel yang berjarak <= spatial_radius_cm dari median
+            inliers = [
+                c for c in coords
+                if np.sqrt((c[0] - med_x) ** 2 + (c[1] - med_y) ** 2) <= self.spatial_radius_cm
+            ]
+
+            if inliers:
+                avg_x = float(np.mean([c[0] for c in inliers]))
+                avg_y = float(np.mean([c[1] for c in inliers]))
+                self.stabilized_coord = (avg_x, avg_y)
+            else:
+                self.stabilized_coord = (med_x, med_y)
+        elif raw_coord is not None:
+            # Belum terkunci penuh, tampilkan koordinat mentah instan sementara
+            self.stabilized_coord = raw_coord
+        else:
+            self.stabilized_coord = None
+
+        return self.is_locked, self.stabilized_coord, self.detection_rate
+
+    def reset(self):
+        self.detection_history.clear()
+        self.coord_history.clear()
+        self.is_locked = False
+        self.detection_rate = 0.0
+        self.stabilized_coord = None
+
+
 class AutoHomographyYoloRunner:
     """Koordinator visualisasi & validasi end-to-end dengan input otomatis dari YOLO."""
 
@@ -270,19 +380,26 @@ class AutoHomographyYoloRunner:
         # 3. Inisialisasi Kinematics Engine
         self.kinematics = KinematicsEngine(self.config)
 
-        # 4. Status Eksekusi Hardware
+        # 4. Inisialisasi Temporal & Spatial Stabilizer (HitL Protection)
+        self.stabilizer = TargetStabilizer(
+            window_size=args.buffer_window,
+            min_rate=args.min_detection_rate,
+            spatial_radius_cm=args.spatial_radius
+        )
+
+        # 5. Status Eksekusi Hardware
         self.coordinator: Optional[CentralCoordinator] = None
         self.mqtt_connected = False
         self.is_action_busy = False
         self.action_status = "Siaga (Tekan G untuk GOTO, S untuk GOTO+SPRAY)"
 
-        # 5. Hubungkan ke MQTT jika diizinkan
+        # 6. Hubungkan ke MQTT jika diizinkan
         if not args.no_mqtt:
             self._init_coordinator()
         else:
             self.action_status = "Mode DRY-RUN (Koneksi MQTT dinonaktifkan via --no-mqtt)"
 
-        # 6. Setup Kamera & Homografi
+        # 7. Setup Kamera & Homografi
         if self.is_dual_mode:
             self._init_dual_mode()
         else:
@@ -589,19 +706,25 @@ class AutoHomographyYoloRunner:
                 detections = self.detector.detect(frame)
                 primary_det = self._extract_primary_target(detections)
 
-                # Anotasi & Hitung Koordinat Fisik
+                # Anotasi & Hitung Koordinat Fisik Instan
                 raw_world = self._draw_camera_annotations(
                     frame, detections, primary_det, self.homo, f"KAMERA {self.cam_id}"
                 )
+
+                # Update Temporal & Spatial Stabilizer
+                is_locked, stabilized_world, det_rate = self.stabilizer.update(raw_world)
+
+                # Target yang digunakan untuk kinematika: utamakan stabilized_world jika terkunci, atau raw_world
+                effective_world = stabilized_world if is_locked else raw_world
 
                 # Kinematics Clamping
                 clamped_world = None
                 clamped_step = None
                 in_safe_bounds = False
 
-                if raw_world is not None:
-                    in_safe_bounds = self.kinematics.is_within_soft_limits(raw_world[0], raw_world[1])
-                    cx, cy = self.kinematics.clamp_world_coordinates(raw_world[0], raw_world[1])
+                if effective_world is not None:
+                    in_safe_bounds = self.kinematics.is_within_soft_limits(effective_world[0], effective_world[1])
+                    cx, cy = self.kinematics.clamp_world_coordinates(effective_world[0], effective_world[1])
                     clamped_world = (cx, cy)
                     try:
                         clamped_step = self.kinematics.world_to_steps(cx, cy)
@@ -616,29 +739,36 @@ class AutoHomographyYoloRunner:
                     fps_val = 0.9 * fps_val + 0.1 * (1.0 / dt)
 
                 # Overlay Status Panel
-                info_overlay = np.zeros((130, frame.shape[1], 3), dtype=np.uint8)
+                info_overlay = np.zeros((140, frame.shape[1], 3), dtype=np.uint8)
                 color_bounds = (0, 255, 0) if in_safe_bounds else (0, 140, 255)
+                lock_badge = "[TARGET LOCKED - STABLE]" if is_locked else f"[BUFFERING... {det_rate*100:.0f}%]"
+                lock_color = (0, 255, 0) if is_locked else (0, 200, 255)
 
-                if raw_world is not None and clamped_world is not None and primary_det is not None:
+                if effective_world is not None and clamped_world is not None and primary_det is not None:
                     status_line1 = (
-                        f"Target Api: ({raw_world[0]:.1f}, {raw_world[1]:.1f}) cm | "
-                        f"Clamped: ({clamped_world[0]:.1f}, {clamped_world[1]:.1f}) cm | "
-                        f"Conf: {primary_det.confidence*100:.1f}% | Mode: {self.target_mode.upper()}"
+                        f"Target Api: ({effective_world[0]:.1f}, {effective_world[1]:.1f}) cm {lock_badge} | "
+                        f"Clamped: ({clamped_world[0]:.1f}, {clamped_world[1]:.1f}) cm | Rate: {det_rate*100:.1f}%"
                     )
                     step_str = f"Step X: {clamped_step[0]} | Step Y: {clamped_step[1]}" if clamped_step else "Step: N/A"
-                    status_line2 = f"Kinematika: {step_str} | Status Batas Rail: {'AMAN' if in_safe_bounds else 'CLAMPED'}"
+                    status_line2 = (
+                        f"Kinematika: {step_str} | Status Batas: {'AMAN' if in_safe_bounds else 'CLAMPED'} | "
+                        f"Conf: {primary_det.confidence*100:.1f}% | Mode: {self.target_mode.upper()}"
+                    )
                 else:
-                    status_line1 = f"Mencari Api... (Mode Target: {self.target_mode.upper()} | Conf: {self.args.conf})"
+                    status_line1 = f"Mencari Api... (Window Buffer: {self.args.buffer_window} fr | Det Rate: {det_rate*100:.0f}%)"
                     status_line2 = "Arahkan kamera ke lidah api atau pemantik gas."
 
-                status_line3 = f"Status Aksi: {self.action_status} (FPS: {fps_val:.1f})"
+                status_line3 = f"HitL Control: [G/ENTER]=GOTO | [S]=GOTO+SPRAY | [M]=MODE | FPS: {fps_val:.1f}"
+                status_line4 = f"Status Aksi: {self.action_status}"
 
-                cv2.putText(info_overlay, status_line1, (15, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1)
-                cv2.putText(info_overlay, status_line2, (15, 65),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, color_bounds, 1)
-                cv2.putText(info_overlay, status_line3, (15, 100),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 255), 1)
+                cv2.putText(info_overlay, status_line1, (15, 28),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.52, lock_color, 1)
+                cv2.putText(info_overlay, status_line2, (15, 58),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.52, color_bounds, 1)
+                cv2.putText(info_overlay, status_line3, (15, 88),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.50, (0, 220, 255), 1)
+                cv2.putText(info_overlay, status_line4, (15, 118),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.50, (255, 255, 0), 1)
 
                 display_img = np.vstack([frame, info_overlay])
                 cv2.imshow(self.window_name, display_img)
@@ -801,14 +931,18 @@ class AutoHomographyYoloRunner:
                     active_target_cm = raw_w2
                     target_mode_desc = "SINGLE: KAMERA 2 SAJA (Kamera 1 Tertutup/Tidak Terdeteksi)"
 
+                # Update Temporal & Spatial Stabilizer pada hasil fusi/single
+                is_locked, stabilized_target_cm, det_rate = self.stabilizer.update(active_target_cm)
+                effective_target_cm = stabilized_target_cm if is_locked else active_target_cm
+
                 # Kinematics Clamping
                 clamped_target_cm = None
                 clamped_steps = None
                 in_safe_bounds = False
 
-                if active_target_cm is not None:
-                    in_safe_bounds = self.kinematics.is_within_soft_limits(active_target_cm[0], active_target_cm[1])
-                    cx, cy = self.kinematics.clamp_world_coordinates(active_target_cm[0], active_target_cm[1])
+                if effective_target_cm is not None:
+                    in_safe_bounds = self.kinematics.is_within_soft_limits(effective_target_cm[0], effective_target_cm[1])
+                    cx, cy = self.kinematics.clamp_world_coordinates(effective_target_cm[0], effective_target_cm[1])
                     clamped_target_cm = (cx, cy)
                     try:
                         clamped_steps = self.kinematics.world_to_steps(cx, cy)
@@ -834,11 +968,14 @@ class AutoHomographyYoloRunner:
                 cv2.line(dashboard, (col_w, 10), (col_w, dash_h - 10), (50, 50, 50), 1)
                 cv2.line(dashboard, (col_w * 2, 10), (col_w * 2, dash_h - 10), (50, 50, 50), 1)
 
+                lock_badge = "LOCKED" if is_locked else f"BUFFER {det_rate*100:.0f}%"
+                lock_color = (0, 255, 0) if is_locked else (0, 200, 255)
+
                 # Kolom 1: Status Sumber Deteksi & Fusi
-                cv2.putText(dashboard, "[1] STATUS FUSI & DETEKSI", (15, 25),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 255), 1)
-                cv2.putText(dashboard, f"Mode: {target_mode_desc}", (15, 55),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+                cv2.putText(dashboard, f"[1] STATUS FUSI & DETEKSI [{lock_badge}]", (15, 25),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.52, lock_color, 1)
+                cv2.putText(dashboard, f"Mode: {target_mode_desc[:38]}", (15, 55),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.44, (255, 255, 255), 1)
 
                 if discrepancy_cm is not None:
                     color_disc = (0, 255, 0) if discrepancy_cm <= 15.0 else (0, 165, 255)
@@ -847,23 +984,24 @@ class AutoHomographyYoloRunner:
                     cv2.putText(dashboard, f"Konsistensi     : {consistency_status}", (15, 115),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, color_disc, 1)
                 else:
-                    cv2.putText(dashboard, "Selisih Spasial : Menunggu kedua kamera...", (15, 85),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (120, 120, 120), 1)
-                    cv2.putText(dashboard, f"Target Acuan   : {self.target_mode.upper()} point", (15, 115),
+                    cv2.putText(dashboard, f"Detection Rate  : {det_rate*100:.1f}% (Min: {self.args.min_detection_rate*100:.0f}%)", (15, 85),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.45, lock_color, 1)
+                    cv2.putText(dashboard, f"Target Acuan    : {self.target_mode.upper()} point", (15, 115),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, (180, 180, 180), 1)
 
                 # Kolom 2: Koordinat Target & Kinematika
                 cv2.putText(dashboard, "[2] KOORDINAT FISIK & KINEMATIKA", (col_w + 15, 25),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 255), 1)
-                if active_target_cm is not None and clamped_target_cm is not None:
-                    cv2.putText(dashboard, f"Fusi Mentah : ({active_target_cm[0]:.1f}, {active_target_cm[1]:.1f}) cm",
-                                (col_w + 15, 55), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (255, 255, 255), 1)
+                if effective_target_cm is not None and clamped_target_cm is not None:
+                    stabilized_note = " (Stabil)" if is_locked else " (Instan)"
+                    cv2.putText(dashboard, f"Target Fisik: ({effective_target_cm[0]:.1f}, {effective_target_cm[1]:.1f}) cm{stabilized_note}",
+                                (col_w + 15, 55), cv2.FONT_HERSHEY_SIMPLEX, 0.46, (255, 255, 255), 1)
                     color_b = (0, 255, 0) if in_safe_bounds else (0, 140, 255)
                     cv2.putText(dashboard, f"Target Rail : ({clamped_target_cm[0]:.1f}, {clamped_target_cm[1]:.1f}) cm [{ 'AMAN' if in_safe_bounds else 'CLAMPED' }]",
-                                (col_w + 15, 85), cv2.FONT_HERSHEY_SIMPLEX, 0.48, color_b, 1)
+                                (col_w + 15, 85), cv2.FONT_HERSHEY_SIMPLEX, 0.46, color_b, 1)
                     if clamped_steps is not None:
                         cv2.putText(dashboard, f"Motor Steps : X={clamped_steps[0]} | Y={clamped_steps[1]}",
-                                    (col_w + 15, 115), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (0, 255, 200), 1)
+                                    (col_w + 15, 115), cv2.FONT_HERSHEY_SIMPLEX, 0.46, (0, 255, 200), 1)
                 else:
                     cv2.putText(dashboard, "Menunggu deteksi objek api...",
                                 (col_w + 15, 65), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (120, 120, 120), 1)
