@@ -87,6 +87,24 @@ class KinematicsEngine:
         is_clamped = (clamped_x != x_cm) or (clamped_y != y_cm)
         return clamped_x, clamped_y, is_clamped
 
+    def is_within_soft_limits(self, x_cm: float, y_cm: float) -> bool:
+        """Memeriksa apakah koordinat (X, Y cm) berada di dalam batas jangkauan aman tanpa perlu di-clamp."""
+        min_x = self.clearance_x
+        max_x = self.width_m - self.clearance_x
+        min_y = self.clearance_y
+        max_y = self.height_n - self.clearance_y
+        return (min_x <= x_cm <= max_x) and (min_y <= y_cm <= max_y)
+
+    def clamp_world_coordinates(self, x_cm: float, y_cm: float) -> Tuple[float, float]:
+        """Alias helper untuk menjepit koordinat dunia ke batas aman."""
+        cx, cy, _ = self.clamp_coordinates(x_cm, y_cm)
+        return cx, cy
+
+    def world_to_steps(self, x_cm: float, y_cm: float) -> Tuple[int, int]:
+        """Alias helper menerjemahkan koordinat fisik (cm) ke langkah stepper (step_x, step_y)."""
+        sx, sy, _, _ = self.coordinates_to_steps(x_cm, y_cm)
+        return sx, sy
+
     def coordinates_to_steps(self, x_cm: float, y_cm: float) -> Tuple[int, int, Tuple[float, float], bool]:
         """
         Menerjemahkan koordinat fisik api (cm) menjadi target langkah motor (steps).

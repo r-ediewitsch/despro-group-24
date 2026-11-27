@@ -197,7 +197,7 @@ def parse_arguments():
 class ThreadedCamera:
     """Pengambil frame video asinkron menggunakan threading untuk menghindari bottleneck buffer USB."""
 
-    def __init__(self, cam_index: int, width: int = 1280, height: int = 720, fps: int = 30, label: str = "Camera"):
+    def __init__(self, cam_index: int, width: int = 1920, height: int = 1080, fps: int = 30, label: str = "Camera"):
         self.cam_index = cam_index
         self.label = label
         self.cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)
@@ -207,12 +207,9 @@ class ThreadedCamera:
         if not self.cap.isOpened():
             raise RuntimeError(f"Gagal membuka {label} (Device Index {cam_index})! Pastikan webcam terhubung.")
 
-        try:
-            fourcc = cv2.VideoWriter_fourcc(*"MJPG")
-            self.cap.set(cv2.CAP_PROP_FOURCC, fourcc)
-        except Exception:
-            pass
-
+        # Prioritaskan format kompresi MJPG sebelum resolusi diatur
+        fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+        self.cap.set(cv2.CAP_PROP_FOURCC, fourcc)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         self.cap.set(cv2.CAP_PROP_FPS, fps)
@@ -221,6 +218,8 @@ class ThreadedCamera:
         self.actual_w = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.actual_h = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.ret, self.frame = self.cap.read()
+        self.last_good_frame = self.frame.copy() if (self.ret and self.frame is not None) else None
+
         self.lock = threading.Lock()
         self.running = True
 
@@ -231,16 +230,23 @@ class ThreadedCamera:
     def _reader_loop(self):
         while self.running:
             ret, frame = self.cap.read()
-            if ret and frame is not None:
-                with self.lock:
-                    self.ret = ret
+            with self.lock:
+                if ret and frame is not None:
+                    self.ret = True
                     self.frame = frame
-            else:
-                time.sleep(0.005)
+                    self.last_good_frame = frame
+                else:
+                    # Pertahankan frame bagus terakhir jika ada drop sesaat (cegah layar berkedip)
+                    if self.last_good_frame is not None:
+                        self.frame = self.last_good_frame
+                        self.ret = True
+            time.sleep(0.005)
 
     def read(self) -> Tuple[bool, Optional[np.ndarray]]:
         with self.lock:
             if self.frame is None:
+                if self.last_good_frame is not None:
+                    return True, self.last_good_frame.copy()
                 return False, None
             return self.ret, self.frame.copy()
 
@@ -378,7 +384,7 @@ class AutoHomographyYoloRunner:
         )
 
         # 3. Inisialisasi Kinematics Engine
-        self.kinematics = KinematicsEngine(self.config)
+        self.kinematics = KinematicsEngine.from_config(self.config)
 
         # 4. Inisialisasi Temporal & Spatial Stabilizer (HitL Protection)
         self.stabilizer = TargetStabilizer(
@@ -509,7 +515,7 @@ class AutoHomographyYoloRunner:
             logger.error(f"Berkas homografi tidak ditemukan: {homo_path}")
             sys.exit(1)
 
-        self.homo = HomographyEngine(homo_path)
+        self.homo = HomographyEngine.load(homo_path)
         logger.info(f"Homografi Kamera {self.cam_id} dimuat dari: {homo_path}")
 
         # Undistort Maps
@@ -544,8 +550,8 @@ class AutoHomographyYoloRunner:
             logger.error(f"Berkas homografi dual kamera tidak lengkap: {h1_path} atau {h2_path}")
             sys.exit(1)
 
-        self.homo1 = HomographyEngine(h1_path)
-        self.homo2 = HomographyEngine(h2_path)
+        self.homo1 = HomographyEngine.load(h1_path)
+        self.homo2 = HomographyEngine.load(h2_path)
         logger.info("Homografi Kamera 1 dan Kamera 2 berhasil dimuat.")
 
         # Undistort Maps untuk Cam 1 & Cam 2

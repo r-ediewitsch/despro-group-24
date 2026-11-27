@@ -159,12 +159,8 @@ class ThreadedCamera:
             raise RuntimeError(f"Gagal membuka {label} (Device Index {cam_index})! Pastikan webcam terhubung.")
 
         # Atur format MJPG agar tidak membebani USB bandwidth
-        try:
-            fourcc = cv2.VideoWriter_fourcc(*"MJPG")
-            self.cap.set(cv2.CAP_PROP_FOURCC, fourcc)
-        except Exception:
-            pass
-
+        fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+        self.cap.set(cv2.CAP_PROP_FOURCC, fourcc)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         self.cap.set(cv2.CAP_PROP_FPS, fps)
@@ -173,6 +169,8 @@ class ThreadedCamera:
         self.actual_w = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.actual_h = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.ret, self.frame = self.cap.read()
+        self.last_good_frame = self.frame.copy() if (self.ret and self.frame is not None) else None
+
         self.lock = threading.Lock()
         self.running = True
 
@@ -183,16 +181,22 @@ class ThreadedCamera:
     def _reader_loop(self):
         while self.running:
             ret, frame = self.cap.read()
-            if ret and frame is not None:
-                with self.lock:
-                    self.ret = ret
+            with self.lock:
+                if ret and frame is not None:
+                    self.ret = True
                     self.frame = frame
-            else:
-                time.sleep(0.005)
+                    self.last_good_frame = frame
+                else:
+                    if self.last_good_frame is not None:
+                        self.frame = self.last_good_frame
+                        self.ret = True
+            time.sleep(0.005)
 
     def read(self) -> Tuple[bool, Optional[np.ndarray]]:
         with self.lock:
             if self.frame is None:
+                if self.last_good_frame is not None:
+                    return True, self.last_good_frame.copy()
                 return False, None
             return self.ret, self.frame.copy()
 
